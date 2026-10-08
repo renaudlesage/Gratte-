@@ -1,7 +1,7 @@
 // Service worker de Gratte : l'appli fonctionne hors connexion après la première visite.
 // Page : réseau d'abord (pour recevoir les mises à jour), sinon la version en cache.
 // Fichiers de l'appli (noms versionnés par Vite) et polices : cache d'abord.
-const CACHE = 'gratte-v3'
+const CACHE = 'gratte-v4'
 const CORE = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/icons/icon-192.png', '/icons/icon-512.png']
 
 self.addEventListener('install', (e) => {

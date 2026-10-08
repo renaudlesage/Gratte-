@@ -150,86 +150,92 @@ function SongPlayer({ song, onBack, onEdit }) {
       <h3 className="player-title">{song.title}</h3>
       <p className="muted small">{song.by}</p>
 
-      <div className="shape-strip">
-        {shapes.map((id) => {
-          const c = resolveChord(id)
-          return c ? (
-            <button key={id} className="chord-mini" onClick={() => strum(withCapo(c.frets, capo))} title="Écouter">
-              <ChordDiagram chord={c} size={78} />
-            </button>
-          ) : (
-            <span key={id} className="chord-mini unknown">{label(id)}<small>forme inconnue</small></span>
-          )
-        })}
-      </div>
-
-      <div className="player-controls">
-        <div className="stepper">
-          <span>Tonalité</span>
-          <button className="btn btn-round small" onClick={() => setTranspose(transpose - 1)} aria-label="Descendre d’un demi-ton">−</button>
-          <strong>{keyName(transpose)}</strong>
-          <button className="btn btn-round small" onClick={() => setTranspose(transpose + 1)} aria-label="Monter d’un demi-ton">+</button>
-        </div>
-        <div className="stepper">
-          <span>Capo</span>
-          <button className="btn btn-round small" onClick={() => setCapo(Math.max(0, capo - 1))} aria-label="Capo plus bas">−</button>
-          <strong>{capo || '—'}</strong>
-          <button className="btn btn-round small" onClick={() => setCapo(Math.min(9, capo + 1))} aria-label="Capo plus haut">+</button>
-        </div>
-        <button className="btn btn-ghost small" onClick={() => setCapo(suggestCapo(sounding, transpose))}>Capo conseillé</button>
-        <label className="field-inline">
-          Accompagnement
-          <select id="accomp" value={accomp} onChange={(e) => setAccomp(e.target.value)}>
-            <option value="mesure">1 coup par mesure</option>
-            <option value="temps">Chaque temps</option>
-            <option value="aucun">Pas de guitare</option>
-          </select>
-        </label>
-        <label className="field-inline">
-          Groupe
-          <select id="song-band" value={band} onChange={(e) => setBand(e.target.value)}>
-            {STYLES.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          </select>
-        </label>
-      </div>
-      {capo > 0 && (
-        <p className="capo-note">
-          Capo case {capo} : vous jouez <strong>{label(shape(sounding[0]))}</strong>, ça sonne <strong>{label(transposeChord(sounding[0], transpose))}</strong>.
-        </p>
-      )}
-
-      <div className="lyrics">
-        {parsed.lines.map((ln, i) => {
-          if (ln.type === 'blank') return <div key={i} className="ly-blank" />
-          if (ln.type === 'section') return <div key={i} className="ly-section">{ln.text}</div>
-          return (
-            <div key={i} className="ly-line">
-              {ln.parts.map((pt, j) => (
-                <span key={j} className={`ly-part${pt.bar !== null && pt.bar === pos.bar ? ' now' : ''}`} data-bar={pt.bar ?? undefined}>
-                  <span className="ly-chord">{pt.chord ? label(shape(pt.chord)) : ' '}</span>
-                  <span className="ly-text">{pt.text || ' '}</span>
-                </span>
-              ))}
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="player-dock">
-        <div className="beat-dots small" aria-hidden>
-          {Array.from({ length: song.beats }, (_, i) => (
-            <span key={i} className={`beat-dot${i === pos.beat ? ' on' : ''}${pos.countIn ? ' accent' : ''}`} />
-          ))}
-          {pos.countIn && <span className="muted small">décompte…</span>}
-        </div>
-        <div className="dock-row">
-          <div className="dock-bpm">
-            <button className="btn btn-round small" onClick={() => setBpm(Math.max(40, bpm - 5))} aria-label="Moins vite">−</button>
-            <span><strong>{bpm}</strong> BPM</span>
-            <button className="btn btn-round small" onClick={() => setBpm(Math.min(180, bpm + 5))} aria-label="Plus vite">+</button>
+      <div className="player-body">
+        <div className="player-main">
+          <div className="lyrics">
+            {parsed.lines.map((ln, i) => {
+              if (ln.type === 'blank') return <div key={i} className="ly-blank" />
+              if (ln.type === 'section') return <div key={i} className="ly-section">{ln.text}</div>
+              return (
+                <div key={i} className="ly-line">
+                  {ln.parts.map((pt, j) => (
+                    <span key={j} className={`ly-part${pt.bar !== null && pt.bar === pos.bar ? ' now' : ''}`} data-bar={pt.bar ?? undefined}>
+                      <span className="ly-chord">{pt.chord ? label(shape(pt.chord)) : ' '}</span>
+                      <span className="ly-text">{pt.text || ' '}</span>
+                    </span>
+                  ))}
+                </div>
+              )
+            })}
           </div>
-          <button className={`btn dock-play ${running ? '' : 'btn-primary'}`} onClick={toggle}>{running ? '■ Stop' : '▶ Jouer'}</button>
+
         </div>
+        <aside className="player-side">
+          <div className="shape-strip">
+            {shapes.map((id) => {
+              const c = resolveChord(id)
+              return c ? (
+                <button key={id} className="chord-mini" onClick={() => strum(withCapo(c.frets, capo))} title="Écouter">
+                  <ChordDiagram chord={c} size={78} />
+                </button>
+              ) : (
+                <span key={id} className="chord-mini unknown">{label(id)}<small>forme inconnue</small></span>
+              )
+            })}
+          </div>
+
+          <div className="player-controls">
+            <div className="stepper">
+              <span>Tonalité</span>
+              <button className="btn btn-round small" onClick={() => setTranspose(transpose - 1)} aria-label="Descendre d’un demi-ton">−</button>
+              <strong>{keyName(transpose)}</strong>
+              <button className="btn btn-round small" onClick={() => setTranspose(transpose + 1)} aria-label="Monter d’un demi-ton">+</button>
+            </div>
+            <div className="stepper">
+              <span>Capo</span>
+              <button className="btn btn-round small" onClick={() => setCapo(Math.max(0, capo - 1))} aria-label="Capo plus bas">−</button>
+              <strong>{capo || '—'}</strong>
+              <button className="btn btn-round small" onClick={() => setCapo(Math.min(9, capo + 1))} aria-label="Capo plus haut">+</button>
+            </div>
+            <button className="btn btn-ghost small" onClick={() => setCapo(suggestCapo(sounding, transpose))}>Capo conseillé</button>
+            <label className="field-inline">
+              Accompagnement
+              <select id="accomp" value={accomp} onChange={(e) => setAccomp(e.target.value)}>
+                <option value="mesure">1 coup par mesure</option>
+                <option value="temps">Chaque temps</option>
+                <option value="aucun">Pas de guitare</option>
+              </select>
+            </label>
+            <label className="field-inline">
+              Groupe
+              <select id="song-band" value={band} onChange={(e) => setBand(e.target.value)}>
+                {STYLES.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              </select>
+            </label>
+          </div>
+          {capo > 0 && (
+            <p className="capo-note">
+              Capo case {capo} : vous jouez <strong>{label(shape(sounding[0]))}</strong>, ça sonne <strong>{label(transposeChord(sounding[0], transpose))}</strong>.
+            </p>
+          )}
+
+          <div className="player-dock">
+            <div className="beat-dots small" aria-hidden>
+              {Array.from({ length: song.beats }, (_, i) => (
+                <span key={i} className={`beat-dot${i === pos.beat ? ' on' : ''}${pos.countIn ? ' accent' : ''}`} />
+              ))}
+              {pos.countIn && <span className="muted small">décompte…</span>}
+            </div>
+            <div className="dock-row">
+              <div className="dock-bpm">
+                <button className="btn btn-round small" onClick={() => setBpm(Math.max(40, bpm - 5))} aria-label="Moins vite">−</button>
+                <span><strong>{bpm}</strong> BPM</span>
+                <button className="btn btn-round small" onClick={() => setBpm(Math.min(180, bpm + 5))} aria-label="Plus vite">+</button>
+              </div>
+              <button className={`btn dock-play ${running ? '' : 'btn-primary'}`} onClick={toggle}>{running ? '■ Stop' : '▶ Jouer'}</button>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   )

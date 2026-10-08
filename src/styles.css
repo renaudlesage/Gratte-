@@ -489,3 +489,41 @@ code { background: var(--card-2); padding: 1px 5px; border-radius: 5px; }
 .parcours-title { margin-top: 18px; }
 .parcours-title:first-child { margin-top: 0; }
 input[type="time"].small-input { width: 120px; }
+
+/* ---------- Paysage et tablettes ---------- */
+/* Lecteur de chanson : en portrait, accords puis paroles puis commandes ; en paysage, deux colonnes */
+.player-body { display: flex; flex-direction: column; }
+.player-side { display: contents; }
+.player-side .shape-strip { order: 1; }
+.player-side .player-controls { order: 2; }
+.player-side .capo-note { order: 3; }
+.player-main { order: 4; min-width: 0; }
+.player-side .player-dock { order: 5; }
+@media (min-width: 760px) and (orientation: landscape) {
+  .player-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 16px; align-items: start; }
+  .player-main { grid-column: 1; grid-row: 1; }
+  .player-main .lyrics { margin-top: 0; }
+  .player-side { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; gap: 10px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 76px); max-height: calc(100vh - 92px); overflow-y: auto; }
+  .player-side .shape-strip { flex-wrap: wrap; padding: 0; }
+  .player-side .player-dock { position: static; }
+}
+/* En-tête : entre 760 et 1000 px, le choix du son passe dans les réglages pour laisser la place au menu */
+@media (min-width: 760px) and (max-width: 1000px) {
+  .topbar .sound-toggle { display: none; }
+  .nav-desktop button { padding: 8px 10px; }
+}
+/* Écrans peu hauts (téléphone en paysage) : en-tête non collant, plus d'espace utile */
+@media (max-height: 520px) and (orientation: landscape) {
+  .topbar { position: static; }
+  .player-side { top: 8px; max-height: calc(100vh - 16px); }
+  .player-side .shape-strip .chord-mini svg { width: 60px; height: auto; }
+  .page-title { margin-bottom: 8px; }
+}
+/* Grands écrans : un peu plus de largeur utile */
+@media (min-width: 1100px) {
+  .app { max-width: 1080px; }
+}
+@media (max-height: 520px) and (orientation: landscape) and (min-width: 760px) {
+  .player-side .player-dock { order: -1; }
+  .player-side .player-dock .beat-dots { display: none; }
+}
