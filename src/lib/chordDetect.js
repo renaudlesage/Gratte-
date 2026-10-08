@@ -14,13 +14,13 @@ export const P = { comp: 0.5, hw: 1, nh: 6, white: 1.0 }
 const templateCache = new Map()
 
 // Modèle chroma d'un doigté (frets) : notes jouées + harmoniques pondérées
-export function chordTemplate(frets) {
-  const key = frets.join(',') + JSON.stringify(P)
+export function chordTemplate(frets, open = OPEN_MIDI) {
+  const key = frets.join(',') + open.join(',') + JSON.stringify(P)
   if (templateCache.has(key)) return templateCache.get(key)
   const t = new Float32Array(12)
   frets.forEach((f, s) => {
     if (f < 0) return
-    const f0 = midiToFreq(OPEN_MIDI[s] + f)
+    const f0 = midiToFreq(open[s] + f)
     for (let h = 1; h <= P.nh; h++) {
       const fh = f0 * h
       if (fh > F_MAX) break
@@ -91,7 +91,7 @@ export function analyzeSpectrum(mags, sr, fftSize) {
 // Classe les accords candidats (par défaut tout le dictionnaire) par ressemblance
 export function rankChords(chroma, candidates = CHORDS) {
   return candidates
-    .map((c) => ({ id: c.id, chord: c, score: cosine(chroma, chordTemplate(c.frets)) }))
+    .map((c) => ({ id: c.id, chord: c, score: cosine(chroma, chordTemplate(c.frets, c.open)) }))
     .sort((a, b) => b.score - a.score)
 }
 
@@ -100,7 +100,8 @@ export const MATCH_MIN = 0.8
 // Diagnostic d'un accord visé : cordes qui semblent muettes, notes étrangères
 export function diagnose(analysis, chord) {
   const { notes, chroma } = analysis
-  const playedNotes = chord.frets.map((f, s) => (f >= 0 ? OPEN_MIDI[s] + f : null))
+  const open = chord.open || OPEN_MIDI
+  const playedNotes = chord.frets.map((f, s) => (f >= 0 ? open[s] + f : null))
   const levels = playedNotes.map((m) => (m === null ? null : notes[m] + 0.5 * (notes[m + 12] || 0)))
   const maxLevel = Math.max(...levels.filter((x) => x !== null), 1e-12)
   const silent = []
@@ -109,7 +110,7 @@ export function diagnose(analysis, chord) {
     // Une note jouée sur une autre corde à l'octave peut masquer une corde muette : on reste indulgent
     if (levels[s] < maxLevel * 0.04) silent.push(s)
   })
-  const tpl = chordTemplate(chord.frets)
+  const tpl = chordTemplate(chord.frets, chord.open)
   const foreign = []
   for (let pc = 0; pc < 12; pc++) if (chroma[pc] - tpl[pc] > 0.28) foreign.push(pc)
   return { silent, foreign }
@@ -118,7 +119,7 @@ export function diagnose(analysis, chord) {
 // Vérifie un accord visé. Les accords « jumeaux » (G/G7, C/Cadd9…) ne diffèrent que d'une note :
 // si l'accord visé est presque à égalité avec le meilleur, on le considère comme reconnu.
 export function checkTarget(analysis, chord, candidates = CHORDS) {
-  const ranked = rankChords(analysis.chroma, candidates)
+  const ranked = rankChords(analysis.chroma, chord.open ? [chord] : candidates)
   const target = ranked.find((r) => r.id === chord.id) || { score: rankChords(analysis.chroma, [chord])[0].score }
   const best = ranked[0]
   let status = 'other'

@@ -10,12 +10,16 @@ import ChordFlow from './components/ChordFlow.jsx'
 import Strumming from './components/Strumming.jsx'
 import Arpeggios from './components/Arpeggios.jsx'
 import EarTraining from './components/EarTraining.jsx'
+import TabPlayer from './components/TabPlayer.jsx'
 import Songs from './components/Songs.jsx'
 import Tuner from './components/Tuner.jsx'
 import Metronome from './components/Metronome.jsx'
 import Settings from './components/Settings.jsx'
 import Tabs from './components/Tabs.jsx'
 import SoundToggle from './components/SoundToggle.jsx'
+import Progress from './components/Progress.jsx'
+import Recorder from './components/Recorder.jsx'
+import { decodeSong } from './lib/share.js'
 
 const NAV = [
   ['accueil', 'Accueil', '⌂'],
@@ -25,11 +29,24 @@ const NAV = [
   ['chansons', 'Chansons', '♫'],
   ['outils', 'Outils', '♩'],
 ]
-const TAB_IDS = [...NAV.map((n) => n[0]), 'reglages']
+const TAB_IDS = [...NAV.map((n) => n[0]), 'reglages', 'progres']
 
 const readHash = () => {
   const t = window.location.hash.replace('#/', '').replace('#', '').split('/')[0]
   return TAB_IDS.includes(t) ? t : 'accueil'
+}
+
+// Lien de partage d'une grille (#g=…) : ouvre l'import dans Chansons
+function sharedRoute() {
+  const m = /^#g=([A-Za-z0-9_-]+)/.exec(window.location.hash)
+  if (!m) return null
+  const song = decodeSong(m[1])
+  try {
+    window.history.replaceState(null, '', window.location.pathname + '#chansons')
+  } catch {
+    /* sans historique : on garde l'adresse */
+  }
+  return song ? { tab: 'chansons', params: { importSong: song, _k: Date.now() } } : null
 }
 
 const PRACTICE = [
@@ -37,6 +54,7 @@ const PRACTICE = [
   ['enchainement', 'Enchaînement'],
   ['rythmes', 'Rythmes'],
   ['arpeges', 'Arpèges'],
+  ['tabs', 'Tablatures'],
   ['oreille', 'Oreille'],
 ]
 
@@ -53,7 +71,8 @@ function Practice({ params }) {
       {mode === 'minute' && <MinuteChallenge params={own} />}
       {mode === 'enchainement' && <ChordFlow params={own} />}
       {mode === 'rythmes' && <Strumming params={own} />}
-      {mode === 'arpeges' && <Arpeggios />}
+      {mode === 'arpeges' && <Arpeggios params={own} />}
+      {mode === 'tabs' && <TabPlayer params={own} />}
       {mode === 'oreille' && <EarTraining knownChords={knownChords(lessonDone)} />}
     </>
   )
@@ -66,8 +85,10 @@ function Tools({ params }) {
   }, [params])
   return (
     <>
-      <Tabs tabs={[['accordeur', 'Accordeur'], ['metronome', 'Métronome']]} value={tool} onChange={setTool} />
-      {tool === 'accordeur' ? <Tuner /> : <Metronome />}
+      <Tabs tabs={[['accordeur', 'Accordeur'], ['metronome', 'Métronome'], ['enregistrer', 'Enregistrer']]} value={tool} onChange={setTool} />
+      {tool === 'accordeur' && <Tuner />}
+      {tool === 'metronome' && <Metronome />}
+      {tool === 'enregistrer' && <Recorder />}
     </>
   )
 }
@@ -80,13 +101,18 @@ const TITLES = {
   chansons: 'Chansons',
   outils: 'Outils',
   reglages: 'Réglages',
+  progres: 'Mes progrès',
 }
 
 export default function App() {
-  const [route, setRoute] = useState({ tab: readHash(), params: {} })
+  const [route, setRoute] = useState(() => sharedRoute() || { tab: readHash(), params: {} })
 
   useEffect(() => {
-    const onHash = () => setRoute((r) => (r.tab === readHash() ? r : { tab: readHash(), params: {} }))
+    const onHash = () => {
+      const shared = sharedRoute()
+      if (shared) setRoute(shared)
+      else setRoute((r) => (r.tab === readHash() ? r : { tab: readHash(), params: {} }))
+    }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
@@ -129,6 +155,7 @@ export default function App() {
             {tab === 'chansons' && <Songs params={params} />}
             {tab === 'outils' && <Tools params={params} />}
             {tab === 'reglages' && <Settings />}
+            {tab === 'progres' && <Progress />}
           </main>
 
           <nav className="nav-mobile">

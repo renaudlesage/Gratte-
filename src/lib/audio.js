@@ -224,6 +224,23 @@ function bodyImpulse(c) {
 }
 
 const chains = new WeakMap()
+const limiters = new WeakMap()
+
+// Limiteur commun en sortie : guitare et groupe passent par lui, rien ne sature
+export function masterOut(c) {
+  if (limiters.has(c)) return limiters.get(c)
+  const lim = c.createDynamicsCompressor()
+  lim.threshold.value = -4
+  lim.knee.value = 2
+  lim.ratio.value = 20
+  lim.attack.value = 0.002
+  lim.release.value = 0.15
+  const trim = c.createGain()
+  trim.gain.value = 0.9
+  lim.connect(trim).connect(c.destination)
+  limiters.set(c, lim)
+  return lim
+}
 
 function outputChain(c) {
   if (chains.has(c)) return chains.get(c)
@@ -232,7 +249,7 @@ function outputChain(c) {
   master.ratio.value = 3
   master.attack.value = 0.004
   master.release.value = 0.2
-  master.connect(c.destination)
+  master.connect(masterOut(c))
 
   // Acoustique : son direct + caisse convoluée, puis égalisation typée « folk »
   const ac = c.createGain()
@@ -279,7 +296,8 @@ function outputChain(c) {
 
 // stringIdx : quand une corde est rejouée, la note précédente sur cette corde est étouffée,
 // comme sur un vrai instrument (évite la bouillie sonore pendant les rythmiques).
-export function pluck(freq, when = 0, gain = 0.35, stringIdx = null) {
+// muted : étouffé (paume sur les cordes) — la note s'éteint en ~0,1 s
+export function pluck(freq, when = 0, gain = 0.35, stringIdx = null, muted = false) {
   const c = getCtx()
   const t = Math.max(when || 0, c.currentTime)
   const v = voice
@@ -289,6 +307,10 @@ export function pluck(freq, when = 0, gain = 0.35, stringIdx = null) {
   const g = c.createGain()
   g.gain.value = v === 'acoustique' ? gain * 0.9 : gain
   src.connect(g).connect(chain[v])
+  if (muted) {
+    g.gain.setValueAtTime(g.gain.value, t + 0.05)
+    g.gain.setTargetAtTime(0, t + 0.05, 0.035)
+  }
   if (stringIdx !== null) {
     const prev = chain.ringing.get(stringIdx)
     if (prev) {
@@ -303,10 +325,11 @@ export function pluck(freq, when = 0, gain = 0.35, stringIdx = null) {
     chain.ringing.set(stringIdx, { gain: g.gain, src })
   }
   src.start(t)
+  if (muted) src.stop(t + 0.5)
 }
 
 // frets : tableau de 6 valeurs (corde 6 → corde 1), -1 = corde étouffée
-export function strum(frets, { when = 0, direction = 'down', spacing = 0.022, gain = 0.22 } = {}) {
+export function strum(frets, { when = 0, direction = 'down', spacing = 0.022, gain = 0.22, open = OPEN_MIDI } = {}) {
   const c = getCtx()
   const start = when || c.currentTime + 0.02
   let order = [0, 1, 2, 3, 4, 5]
@@ -319,7 +342,7 @@ export function strum(frets, { when = 0, direction = 'down', spacing = 0.022, ga
     const human = 0.88 + Math.random() * 0.24
     const jitter = k === 0 ? 0 : (Math.random() - 0.5) * spacing * 0.35
     const base = direction === 'up' ? gain * 0.8 : gain
-    pluck(midiToFreq(OPEN_MIDI[s] + f), start + k * spacing + jitter, base * human, s)
+    pluck(midiToFreq(open[s] + f), start + k * spacing + jitter, base * human, s)
     k++
   }
 }

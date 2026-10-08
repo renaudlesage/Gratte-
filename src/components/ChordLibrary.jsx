@@ -5,6 +5,8 @@ import ChordDiagram from './ChordDiagram.jsx'
 import ChordCheck from './ChordCheck.jsx'
 import Fretboard from './Fretboard.jsx'
 import Tabs from './Tabs.jsx'
+import { useSettings } from '../lib/settings.jsx'
+import { TUNINGS, chordsForTuning } from '../data/tunings.js'
 
 const FILTERS = [
   ['tous', 'Tous'],
@@ -12,6 +14,7 @@ const FILTERS = [
   ['mineur', 'Mineurs'],
   ['7e', '7e'],
   ['autre', 'Couleurs'],
+  ['power', 'Power chords'],
   ['barré', 'Barrés'],
 ]
 
@@ -29,19 +32,22 @@ export default function ChordLibrary({ params = {} }) {
     }
   }, [params])
 
+  const { tuning } = useSettings()
+  const altChords = tuning && tuning !== 'standard' ? chordsForTuning(tuning) : []
   const list = filter === 'tous' ? CHORDS : CHORDS.filter((c) => c.type === filter)
-  const activeChord = active ? getChord(active) : null
+  const keyOf = (c) => (c.tuning ? `${c.tuning}:${c.key || c.id}` : c.id)
+  const activeChord = active ? (getChord(active) || altChords.find((c) => keyOf(c) === active)) : null
 
   const play = (c) => {
-    setActive(c.id)
-    strum(c.frets)
+    setActive(keyOf(c))
+    strum(c.frets, { open: c.open })
   }
 
   return (
     <div>
       <Tabs tabs={[['accords', 'Dictionnaire'], ['manche', 'Manche']]} value={view} onChange={setView} />
       {view === 'manche' ? (
-        <Fretboard />
+        <Fretboard initialScale={params.scale || null} initialRoot={params.root ?? 9} key={params._k || 'fb'} />
       ) : (
         <>
           <p className="muted">Touchez un accord pour l’écouter, puis vérifiez-le au micro. Chiffres = doigts : 1 index, 2 majeur, 3 annulaire, 4 auriculaire. ○ corde à vide, × ne pas jouer.</p>
@@ -50,9 +56,24 @@ export default function ChordLibrary({ params = {} }) {
               <ChordDiagram chord={activeChord} size={110} />
               <div className="check-panel-body">
                 <strong>{activeChord.fr}</strong>
-                <ChordCheck chord={activeChord} key={activeChord.id} />
+                <ChordCheck chord={activeChord} key={keyOf(activeChord)} />
               </div>
             </div>
+          )}
+          {altChords.length > 0 && (
+            <section className="alt-tuning">
+              <h3 className="section-title">Accordage {TUNINGS[tuning].name}</h3>
+              <p className="muted small">{TUNINGS[tuning].desc} Accordez la guitare dans l’onglet Outils.</p>
+              <div className="chord-grid">
+                {altChords.map((c) => (
+                  <button key={keyOf(c)} className={`chord-card${active === keyOf(c) ? ' on' : ''}`} onClick={() => play(c)}>
+                    <ChordDiagram chord={c} size={120} highlight={active === keyOf(c)} />
+                    <span className="chord-card-fr">{c.fr}</span>
+                  </button>
+                ))}
+              </div>
+              <h3 className="section-title">Accordage standard</h3>
+            </section>
           )}
           <div className="chips">
             {FILTERS.map(([id, label]) => (

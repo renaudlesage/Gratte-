@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { LESSONS } from '../data/lessons.js'
 import { EMPTY, normalizeState } from './merge.js'
 import { useSync } from './sync.js'
+import { kvSet } from './reminder.js'
 
 const KEY = 'gratte.progress.v1'
 
@@ -34,6 +35,12 @@ export function ProgressProvider({ children }) {
       /* stockage indisponible : on continue en mémoire */
     }
   }, [state])
+
+  // Dernier jour de pratique, lu par le service worker pour le rappel quotidien
+  const lastDay = state.days[state.days.length - 1]
+  useEffect(() => {
+    if (lastDay) kvSet('lastPractice', [...state.days].sort().pop())
+  }, [lastDay]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Synchronisation optionnelle entre appareils (inactive si non configurée)
   const sync = useSync(state, setState)

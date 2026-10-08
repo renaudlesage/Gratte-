@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { detectPitch, median } from '../lib/pitch.js'
-import { getCtx, freqToMidi, midiToFreq, OPEN_MIDI, STRING_NAMES, NOTE_FR, NOTE_EN, playNote } from '../lib/audio.js'
+import { getCtx, freqToMidi, midiToFreq, NOTE_FR, NOTE_EN, playNote } from '../lib/audio.js'
+import { TUNINGS, TUNING_IDS } from '../data/tunings.js'
 import { useProgress } from '../lib/progress.jsx'
 import { useSettings } from '../lib/settings.jsx'
 
@@ -13,7 +14,11 @@ export default function Tuner() {
   const historyRef = useRef([])
   const { markPracticed, logActivity } = useProgress()
   const tunedLogged = useRef(false)
-  const { notation } = useSettings()
+  const { notation, tuning, update } = useSettings()
+  const tuningId = TUNINGS[tuning] ? tuning : 'standard'
+  const OPEN = TUNINGS[tuningId].notes
+  const openRef = useRef(OPEN)
+  openRef.current = OPEN
   const [MAIN, SUB] = notation === 'fr' ? [NOTE_FR, NOTE_EN] : [NOTE_EN, NOTE_FR]
 
   const stop = () => {
@@ -67,11 +72,11 @@ export default function Tuner() {
         // Corde la plus proche en accordage standard
         let string = 0
         let best = Infinity
-        OPEN_MIDI.forEach((m, i) => {
+        openRef.current.forEach((m, i) => {
           const d = Math.abs(exact - m)
           if (d < best) { best = d; string = i }
         })
-        const stringCents = Math.round((exact - OPEN_MIDI[string]) * 100)
+        const stringCents = Math.round((exact - openRef.current[string]) * 100)
         setReading({ freq, midi, cents, string, stringCents })
       }
       rafRef.current = requestAnimationFrame(loop)
@@ -98,6 +103,14 @@ export default function Tuner() {
 
   return (
     <div className="tuner">
+      <div className="chips tuning-chips">
+        {TUNING_IDS.map((id) => (
+          <button key={id} className={`chip${tuningId === id ? ' on' : ''}`} onClick={() => update({ tuning: id })}>
+            {TUNINGS[id].name}
+          </button>
+        ))}
+      </div>
+      {tuningId !== 'standard' && <p className="muted small tuning-desc">{TUNINGS[tuningId].desc}</p>}
       <div className={`tuner-dial${inTune ? ' in-tune' : ''}`}>
         <div className="tuner-note">
           {reading ? (
@@ -125,7 +138,7 @@ export default function Tuner() {
                 : `Trop haut de ${target} cents : détendez`}
         </div>
         {reading && Math.abs(reading.stringCents) <= 100 && (
-          <div className="tuner-string">Corde {6 - reading.string} · {STRING_NAMES[reading.string]}</div>
+          <div className="tuner-string">Corde {6 - reading.string} · {MAIN[OPEN[reading.string] % 12]}</div>
         )}
       </div>
 
@@ -139,9 +152,9 @@ export default function Tuner() {
       <h3 className="section-title">Notes de référence</h3>
       <p className="muted small">Pas de micro ? Accordez à l’oreille : touchez une corde pour l’entendre.</p>
       <div className="ref-strings">
-        {OPEN_MIDI.map((m, i) => (
+        {OPEN.map((m, i) => (
           <button
-            key={m}
+            key={i}
             className={`ref-string${reading && reading.string === i && Math.abs(reading.stringCents) <= 100 ? ' active' : ''}`}
             onClick={() => playNote(m, i)}
           >

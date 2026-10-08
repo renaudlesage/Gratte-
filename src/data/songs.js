@@ -40,6 +40,7 @@ Au-[G]près de ma [C]blonde, qu'il [D]fait bon dor-[G]mir.`,
   {
     id: 'amazing-grace',
     title: 'Amazing Grace',
+    band: 'valse',
     by: 'John Newton (1779)',
     bpm: 80,
     beats: 3,
@@ -57,6 +58,7 @@ The [G]hour I [D]first be-[G]lieved. [G]`,
   {
     id: 'oh-susanna',
     title: 'Oh! Susanna',
+    band: 'folk',
     by: 'Stephen Foster (1848)',
     bpm: 100,
     beats: 4,
@@ -82,12 +84,25 @@ She [Em]once was a [D]true love of [Em]mine. [Em]`,
     id: 'blues-mi',
     title: 'Blues en Mi (12 mesures)',
     by: 'Grille instrumentale',
+    band: 'blues',
     bpm: 90,
     beats: 4,
     text: `# Grille de blues
 [E7] [E7] [E7] [E7]
 [A7] [A7] [E7] [E7]
 [B7] [A7] [E7] [B7]`,
+  },
+  {
+    id: 'blues-la-impro',
+    title: 'Blues en La (pour improviser)',
+    by: 'Grille instrumentale',
+    band: 'blues',
+    bpm: 84,
+    beats: 4,
+    text: `# Jouez la grille, ou improvisez avec la pentatonique de La mineur (case 5)
+[A7] [D7] [A7] [A7]
+[D7] [D7] [A7] [A7]
+[E7] [D7] [A7] [E7]`,
   },
 ]
 

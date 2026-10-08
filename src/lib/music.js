@@ -34,7 +34,7 @@ export function chordLabel(name, notation = 'en') {
   return p ? NOTES_FR[p.pc] + p.suffix : name
 }
 
-const SUFFIX_FR = { '': 'majeur', m: 'mineur', 7: '7', m7: 'm7', maj7: 'maj7' }
+const SUFFIX_FR = { '': 'majeur', m: 'mineur', 7: '7', m7: 'm7', maj7: 'maj7', 5: '5 (power chord)' }
 
 // Formes mobiles : forme de Mi (fondamentale sur la 6e corde) et forme de La (sur la 5e)
 const E_SHAPES = {
@@ -42,6 +42,7 @@ const E_SHAPES = {
   m: { frets: [0, 2, 2, 0, 0, 0], fingers: [1, 3, 4, 1, 1, 1] },
   7: { frets: [0, 2, 0, 1, 0, 0], fingers: [1, 3, 1, 2, 1, 1] },
   m7: { frets: [0, 2, 0, 0, 0, 0], fingers: [1, 3, 1, 1, 1, 1] },
+  5: { frets: [0, 2, 2, -1, -1, -1], fingers: [1, 3, 4, 0, 0, 0] },
 }
 const A_SHAPES = {
   '': { frets: [-1, 0, 2, 2, 2, 0], fingers: [0, 1, 2, 3, 4, 1] },
@@ -49,12 +50,14 @@ const A_SHAPES = {
   7: { frets: [-1, 0, 2, 0, 2, 0], fingers: [0, 1, 3, 1, 4, 1] },
   m7: { frets: [-1, 0, 2, 0, 1, 0], fingers: [0, 1, 3, 1, 2, 1] },
   maj7: { frets: [-1, 0, 2, 1, 2, 0], fingers: [0, 1, 3, 2, 4, 1] },
+  5: { frets: [-1, 0, 2, 2, -1, -1], fingers: [0, 1, 3, 4, 0, 0] },
 }
 
 function shapeAt(shape, fret, fromString) {
   const frets = shape.frets.map((f) => (f < 0 ? -1 : f + fret))
   const fingers = shape.fingers.slice()
-  return { frets, fingers, barre: { fret, from: fromString, to: 5 } }
+  const power = shape.frets.filter((f) => f >= 0).length <= 3
+  return { frets, fingers, barre: power ? undefined : { fret, from: fromString, to: 5 } }
 }
 
 // Retourne un accord affichable et jouable : celui du dictionnaire, ou un barré généré
@@ -75,7 +78,8 @@ export function resolveChord(name) {
     opts.push(shapeAt(A_SHAPES[p.suffix], fret, 1))
   }
   if (!opts.length) return null
-  opts.sort((a, b) => a.barre.fret - b.barre.fret)
+  const pos = (o) => Math.min(...o.frets.filter((f) => f >= 0))
+  opts.sort((a, b) => pos(a) - pos(b))
   const best = opts[0]
   return {
     id: norm,

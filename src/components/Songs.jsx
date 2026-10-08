@@ -5,6 +5,8 @@ import { resolveChord, shapeFor, suggestCapo, withCapo, transposeChord } from '.
 import { useProgress } from '../lib/progress.jsx'
 import { useSettings } from '../lib/settings.jsx'
 import ChordDiagram from './ChordDiagram.jsx'
+import { STYLES, scheduleBar } from '../lib/band.js'
+import { shareLink } from '../lib/share.js'
 
 export default function Songs({ params = {} }) {
   const { userSongs } = useProgress()
@@ -13,6 +15,11 @@ export default function Songs({ params = {} }) {
   useEffect(() => {
     if (params.song) setView({ mode: 'play', id: params.song })
   }, [params.song])
+  const [incoming, setIncoming] = useState(params.importSong || null)
+  useEffect(() => {
+    if (params.importSong) setIncoming(params.importSong)
+  }, [params.importSong])
+  const { saveSong } = useProgress()
 
   const all = [...SONGS, ...userSongs]
   const song = view.id ? all.find((s) => s.id === view.id) : null
@@ -22,6 +29,16 @@ export default function Songs({ params = {} }) {
 
   return (
     <div className="songs">
+      {incoming && (
+        <div className="import-card">
+          <strong>Grille reçue : « {incoming.title} »</strong>
+          <small>{parseSong(incoming.text).bars.length} mesures · {incoming.bpm} BPM</small>
+          <div className="row gap">
+            <button className="btn btn-primary small" onClick={() => { const id = `u${Date.now()}`; saveSong({ ...incoming, id, by: 'Ma grille' }); setIncoming(null); setView({ mode: 'play', id }) }}>Ajouter à mes grilles</button>
+            <button className="btn btn-ghost small" onClick={() => setIncoming(null)}>Ignorer</button>
+          </div>
+        </div>
+      )}
       <p className="muted">Suivez la grille au tempo : l’accord en cours s’allume. Capodastre et transposition sont dans chaque chanson.</p>
       <h3 className="section-title">Airs traditionnels</h3>
       <div className="song-list">
@@ -60,20 +77,26 @@ function SongPlayer({ song, onBack, onEdit }) {
   const [capo, setCapo] = useState(() => suggestCapo(sounding, 0))
   const [bpm, setBpm] = useState(song.bpm)
   const [accomp, setAccomp] = useState('mesure') // aucun | mesure | temps
+  const [band, setBand] = useState(song.band || 'aucun')
   const [running, setRunning] = useState(false)
   const [pos, setPos] = useState({ bar: -1, beat: -1 })
   const startedAt = useRef(0)
 
   const shape = (ch) => shapeFor(ch, transpose, capo)
   const ref = useRef({})
-  ref.current = { parsed, transpose, capo, accomp }
+  ref.current = { parsed, transpose, capo, accomp, band, beats: song.beats }
 
   const clockRef = useRef(null)
   if (!clockRef.current) {
     clockRef.current = new Clock({
       onSchedule: (e) => {
-        const { parsed: p, transpose: t, capo: k, accomp: a } = ref.current
+        const { parsed: p, transpose: t, capo: k, accomp: a, band: bd, beats } = ref.current
         const bar = Math.floor(e.beat / clockRef.current.beatsPerBar) - 1 // 1 mesure de décompte
+        if (bar >= 0 && e.beatInBar === 0 && p.bars.length) {
+          const cur = transposeChord(p.bars[bar % p.bars.length], t)
+          const nxt = transposeChord(p.bars[(bar + 1) % p.bars.length], t)
+          scheduleBar(bd, cur, nxt, e.time, 60 / clockRef.current.bpm, beats)
+        }
         if (bar < 0 || a === 'aucun' || !p.bars.length) return
         if (a === 'mesure' && e.beatInBar !== 0) return
         const c = resolveChord(shapeFor(p.bars[bar % p.bars.length], t, k))
@@ -119,7 +142,10 @@ function SongPlayer({ song, onBack, onEdit }) {
     <div className="player">
       <div className="player-head">
         <button className="btn btn-ghost small" onClick={() => { clock.stop(); onBack() }}>← Chansons</button>
-        {song.by === 'Ma grille' && <button className="btn btn-ghost small" onClick={() => { clock.stop(); onEdit() }}>Modifier</button>}
+        <div className="row gap">
+          <ShareButton song={{ ...song, band }} />
+          {song.by === 'Ma grille' && <button className="btn btn-ghost small" onClick={() => { clock.stop(); onEdit() }}>Modifier</button>}
+        </div>
       </div>
       <h3 className="player-title">{song.title}</h3>
       <p className="muted small">{song.by}</p>
@@ -156,7 +182,13 @@ function SongPlayer({ song, onBack, onEdit }) {
           <select id="accomp" value={accomp} onChange={(e) => setAccomp(e.target.value)}>
             <option value="mesure">1 coup par mesure</option>
             <option value="temps">Chaque temps</option>
-            <option value="aucun">Clic seul</option>
+            <option value="aucun">Pas de guitare</option>
+          </select>
+        </label>
+        <label className="field-inline">
+          Groupe
+          <select id="song-band" value={band} onChange={(e) => setBand(e.target.value)}>
+            {STYLES.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
         </label>
       </div>
@@ -203,6 +235,40 @@ function SongPlayer({ song, onBack, onEdit }) {
   )
 }
 
+function ShareButton({ song }) {
+  const [msg, setMsg] = useState('')
+  const [link, setLink] = useState('')
+  const share = async () => {
+    const url = shareLink(song)
+    setLink(url)
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Gratte : ${song.title}`, text: `Ma grille « ${song.title} » à jouer dans Gratte`, url })
+        return
+      }
+    } catch {
+      /* partage annulé : on propose la copie */
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setMsg('Lien copié')
+    } catch {
+      setMsg('Copiez le lien ci-dessous')
+    }
+  }
+  return (
+    <span className="share">
+      <button className="btn btn-ghost small" onClick={share}>Partager</button>
+      {msg && (
+        <span className="share-pop">
+          <small>{msg}</small>
+          <input className="input" readOnly value={link} onFocus={(e) => e.target.select()} aria-label="Lien de partage" />
+        </span>
+      )}
+    </span>
+  )
+}
+
 function SongEditor({ song, onDone }) {
   const { saveSong, deleteSong } = useProgress()
   const { label } = useSettings()
@@ -217,7 +283,7 @@ function SongEditor({ song, onDone }) {
 
   const save = () => {
     const id = !isNew ? song.id : `u${Date.now()}`
-    saveSong({ id, title: title.trim() || 'Sans titre', by: 'Ma grille', bpm, beats, text })
+    saveSong({ id, title: title.trim() || 'Sans titre', by: 'Ma grille', bpm, beats, text, ...(song?.band ? { band: song.band } : {}) })
     onDone(id)
   }
 

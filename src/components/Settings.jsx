@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { VOICES, strum } from '../lib/audio.js'
 import { useSettings } from '../lib/settings.jsx'
 import { useProgress } from '../lib/progress.jsx'
+import { buildIcs, notificationsSupported, enableNotifications, disableNotifications } from '../lib/reminder.js'
 
 function Segmented({ value, options, onChange, name }) {
   return (
@@ -56,6 +57,14 @@ export default function Settings() {
 
       <section className="setting">
         <div>
+          <strong>Thème</strong>
+          <small>Sombre pour le soir, clair en plein jour, ou automatique selon l’appareil.</small>
+        </div>
+        <Segmented name="Thème" value={s.theme} options={[['sombre', 'Sombre'], ['clair', 'Clair'], ['auto', 'Auto']]} onChange={(v) => s.update({ theme: v })} />
+      </section>
+
+      <section className="setting">
+        <div>
           <strong>Nom des notes</strong>
           <small>Notation anglaise (C, D, E) ou française (Do, Ré, Mi).</small>
         </div>
@@ -86,6 +95,8 @@ export default function Settings() {
         )}
       </section>
 
+      <ReminderSection reminder={s.reminder} update={s.update} />
+
       <SyncSection sync={sync} />
 
       <section className="setting column">
@@ -106,6 +117,66 @@ export default function Settings() {
         )}
       </section>
     </div>
+  )
+}
+
+function ReminderSection({ reminder, update }) {
+  const [time, setTime] = useState(reminder ? `${String(reminder.hour).padStart(2, '0')}:${String(reminder.minute).padStart(2, '0')}` : '19:00')
+  const [msg, setMsg] = useState('')
+  const [ics, setIcs] = useState(null)
+  const parsed = () => {
+    const [h, m] = time.split(':').map(Number)
+    return { hour: h || 0, minute: m || 0 }
+  }
+  useEffect(() => () => ics && URL.revokeObjectURL(ics), [ics])
+
+  const makeIcs = () => {
+    const r = parsed()
+    update({ reminder: { ...r, notify: reminder?.notify || false } })
+    const blob = new Blob([buildIcs(r, window.location.origin + '/')], { type: 'text/calendar' })
+    setIcs(URL.createObjectURL(blob))
+  }
+
+  const toggleNotify = async () => {
+    const r = parsed()
+    if (reminder?.notify) {
+      await disableNotifications()
+      update({ reminder: { ...r, notify: false } })
+      setMsg('Notifications de rappel désactivées.')
+      return
+    }
+    const res = await enableNotifications(r)
+    update({ reminder: { ...r, notify: res.ok } })
+    setMsg(res.msg)
+  }
+
+  return (
+    <section className="setting column">
+      <div>
+        <strong>Rappel quotidien</strong>
+        <small>Un petit rappel à l’heure de votre choix pour garder la régularité.</small>
+      </div>
+      <label className="field-inline">
+        Heure
+        <input id="reminder-time" className="input small-input" type="time" value={time} onChange={(e) => { setTime(e.target.value); setIcs(null) }} />
+      </label>
+      <div className="row gap wrap">
+        {ics ? (
+          <a className="btn btn-primary small" href={ics} download="gratte-rappel.ics">Télécharger le rappel d’agenda</a>
+        ) : (
+          <button className="btn btn-primary small" onClick={makeIcs}>Ajouter à mon agenda</button>
+        )}
+        {notificationsSupported() && (
+          <button className="btn small" onClick={toggleNotify}>{reminder?.notify ? 'Désactiver les notifications' : 'Notifications sur cet appareil'}</button>
+        )}
+      </div>
+      <p className="muted small">
+        {ics
+          ? 'Ouvrez le fichier téléchargé : votre agenda propose d’ajouter un événement quotidien avec alarme.'
+          : 'Le rappel d’agenda fonctionne sur tous les téléphones. Les notifications de l’appli dépendent du navigateur (Chrome/Android, appli installée).'}
+      </p>
+      {msg && <p className="small">{msg}</p>}
+    </section>
   )
 }
 

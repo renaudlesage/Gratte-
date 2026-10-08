@@ -1,9 +1,9 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { getVoice, setVoice as setAudioVoice } from './audio.js'
 import { chordLabel, noteName } from './music.js'
 
 const KEY = 'gratte.settings.v1'
-const DEFAULTS = { notation: 'en', lefty: false }
+const DEFAULTS = { notation: 'en', lefty: false, rhythmLatency: null, theme: 'sombre', tuning: 'standard', reminder: null }
 
 function load() {
   try {
@@ -31,6 +31,14 @@ export function SettingsProvider({ children }) {
       return next
     })
   }, [])
+
+  // Thème : sombre (défaut), clair ou automatique (suit le système)
+  useEffect(() => {
+    const root = document.documentElement
+    if (s.theme === 'clair') root.dataset.theme = 'light'
+    else if (s.theme === 'auto') delete root.dataset.theme
+    else root.dataset.theme = 'dark'
+  }, [s.theme])
 
   const value = useMemo(
     () => ({

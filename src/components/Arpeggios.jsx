@@ -16,8 +16,8 @@ function stepStrings(step, chord) {
     .filter((s) => chord.frets[s] >= 0)
 }
 
-export default function Arpeggios() {
-  const [patternId, setPatternId] = useState('montant')
+export default function Arpeggios({ params = {} }) {
+  const [patternId, setPatternId] = useState(params.pattern || 'montant')
   const [chordId, setChordId] = useState('C')
   const [bpm, setBpm] = useState(60)
   const [withGuitar, setWithGuitar] = useState(true)

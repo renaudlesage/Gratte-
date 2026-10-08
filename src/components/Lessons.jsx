@@ -22,7 +22,11 @@ export default function Lessons({ params = {}, navigate }) {
         const nDone = l.tasks.filter((t) => tasks[t.id]).length
         const isOpen = open === l.id
         return (
-          <section key={l.id} className={`lesson${isOpen ? ' open' : ''}${done ? ' done' : ''}`}>
+          <div key={l.id} style={{ display: 'contents' }}>
+          {(i === 0 || (LESSONS[i - 1].parcours || 1) !== (l.parcours || 1)) && (
+            <h3 className="section-title parcours-title">{(l.parcours || 1) === 1 ? 'Parcours 1 · Les bases' : 'Parcours 2 · Techniques et improvisation'}</h3>
+          )}
+          <section className={`lesson${isOpen ? ' open' : ''}${done ? ' done' : ''}`}>
             <button className="lesson-head" onClick={() => setOpen(isOpen ? null : l.id)} aria-expanded={isOpen}>
               <span className="lesson-num">{done ? '✓' : i + 1}</span>
               <span className="lesson-title">
@@ -73,6 +77,7 @@ export default function Lessons({ params = {}, navigate }) {
               </div>
             )}
           </section>
+          </div>
         )
       })}
     </div>

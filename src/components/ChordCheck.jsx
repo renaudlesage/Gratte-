@@ -45,7 +45,8 @@ export default function ChordCheck({ chord, compact = false }) {
     }
   }
 
-  const tones = new Set(chord.frets.map((f, s) => (f < 0 ? null : ((OPEN_MIDI[s] + f) % 12))).filter((x) => x !== null))
+  const open = chord.open || OPEN_MIDI
+  const tones = new Set(chord.frets.map((f, s) => (f < 0 ? null : ((open[s] + f) % 12))).filter((x) => x !== null))
 
   return (
     <div className={`check${compact ? ' compact' : ''}`}>
