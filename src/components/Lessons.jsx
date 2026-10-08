@@ -4,10 +4,12 @@ import { getChord } from '../data/chords.js'
 import { strum } from '../lib/audio.js'
 import { useProgress } from '../lib/progress.jsx'
 import ChordDiagram from './ChordDiagram.jsx'
+import ChordCheck from './ChordCheck.jsx'
 
 export default function Lessons({ params = {}, navigate }) {
   const { tasks, toggleTask, lessonDone, nextLesson } = useProgress()
   const [open, setOpen] = useState(params.id || nextLesson?.id || LESSONS[0].id)
+  const [checkId, setCheckId] = useState(null)
 
   useEffect(() => {
     if (params.id) setOpen(params.id)
@@ -37,12 +39,15 @@ export default function Lessons({ params = {}, navigate }) {
                     {l.chords.map((id) => {
                       const c = getChord(id)
                       return (
-                        <button key={id} className="chord-mini" onClick={() => strum(c.frets)} title="Écouter">
+                        <button key={id} className={`chord-mini${(checkId && l.chords.includes(checkId) ? checkId : l.chords[0]) === id ? ' on' : ''}`} onClick={() => { strum(c.frets); setCheckId(id) }} title="Écouter">
                           <ChordDiagram chord={c} size={96} />
                         </button>
                       )
                     })}
                   </div>
+                )}
+                {l.chords.length > 0 && (
+                  <ChordCheck compact chord={getChord(checkId && l.chords.includes(checkId) ? checkId : l.chords[0])} key={l.id + (checkId || '')} />
                 )}
                 <ol className="lesson-steps">
                   {l.steps.map((s, k) => <li key={k}>{s}</li>)}

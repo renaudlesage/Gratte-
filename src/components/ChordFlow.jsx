@@ -4,6 +4,7 @@ import { Clock, strum } from '../lib/audio.js'
 import { useProgress } from '../lib/progress.jsx'
 import ChordDiagram from './ChordDiagram.jsx'
 import BpmControl from './BpmControl.jsx'
+import { useSettings } from '../lib/settings.jsx'
 
 export default function ChordFlow({ params = {} }) {
   const [seq, setSeq] = useState(params.chords || ['G', 'D', 'Em', 'C'])
@@ -13,7 +14,9 @@ export default function ChordFlow({ params = {} }) {
   const [running, setRunning] = useState(false)
   const [pos, setPos] = useState({ idx: 0, beat: -1 })
   const [adding, setAdding] = useState('Am')
-  const { markPracticed } = useProgress()
+  const { markPracticed, logActivity } = useProgress()
+  const startedAt = useRef(0)
+  const { label } = useSettings()
 
   const seqRef = useRef(seq)
   const playRef = useRef(playChords)
@@ -51,9 +54,11 @@ export default function ChordFlow({ params = {} }) {
       clock.stop()
       setRunning(false)
       setPos({ idx: 0, beat: -1 })
+      if (Date.now() - startedAt.current > 30000) logActivity('flow', seq.join('-'))
     } else {
       clock.beatsPerBar = beatsPerChord
       clock.start()
+      startedAt.current = Date.now()
       setRunning(true)
       markPracticed()
     }
@@ -79,7 +84,7 @@ export default function ChordFlow({ params = {} }) {
           <div className="seq">
             {seq.map((id, i) => (
               <span key={i} className="seq-item">
-                {id}
+                {label(id)}
                 {seq.length > 1 && (
                   <button aria-label={`Retirer ${id}`} onClick={() => setSeq(seq.filter((_, j) => j !== i))}>×</button>
                 )}
@@ -87,7 +92,7 @@ export default function ChordFlow({ params = {} }) {
             ))}
             <span className="seq-add">
               <select value={adding} onChange={(e) => setAdding(e.target.value)} aria-label="Accord à ajouter">
-                {CHORDS.map((c) => <option key={c.id} value={c.id}>{c.id}</option>)}
+                {CHORDS.map((c) => <option key={c.id} value={c.id}>{label(c.id)}</option>)}
               </select>
               <button className="btn btn-ghost small" onClick={() => setSeq([...seq, adding])}>+ Ajouter</button>
             </span>

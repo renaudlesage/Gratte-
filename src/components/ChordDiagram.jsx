@@ -1,6 +1,11 @@
-// Diagramme d'accord en SVG : cordes verticales (corde 6 à gauche), frettes horizontales
-export default function ChordDiagram({ chord, size = 140, showName = true, highlight = false }) {
+import { useSettings } from '../lib/settings.jsx'
+
+// Diagramme d'accord en SVG : cordes verticales (corde 6 à gauche, ou à droite pour les gauchers)
+export default function ChordDiagram({ chord, size = 140, showName = true, highlight = false, name }) {
+  const settings = useSettings()
   if (!chord) return null
+  const lefty = settings?.lefty
+  const label = name ?? (settings ? settings.label(chord.id) : chord.id)
   const { frets, fingers, barre } = chord
   const played = frets.filter((f) => f > 0)
   const maxFret = played.length ? Math.max(...played) : 0
@@ -15,7 +20,7 @@ export default function ChordDiagram({ chord, size = 140, showName = true, highl
   const bottom = H - 10
   const sx = (right - left) / 5
   const fy = (bottom - top) / nFrets
-  const xs = (s) => left + s * sx
+  const xs = (s) => left + (lefty ? 5 - s : s) * sx
   const yMid = (f) => top + (f - base + 0.5) * fy
 
   return (
@@ -25,11 +30,11 @@ export default function ChordDiagram({ chord, size = 140, showName = true, highl
       height={(size * H) / W}
       className={`chord-diagram${highlight ? ' is-highlight' : ''}`}
       role="img"
-      aria-label={`Diagramme de l'accord ${chord.id}`}
+      aria-label={`Diagramme de l'accord ${label}`}
     >
       {showName && (
         <text x={W / 2} y={12} textAnchor="middle" className="cd-name">
-          {chord.id}
+          {label}
         </text>
       )}
       {/* sillet ou numéro de case */}
@@ -58,9 +63,9 @@ export default function ChordDiagram({ chord, size = 140, showName = true, highl
       )}
       {barre && (
         <rect
-          x={xs(barre.from) - 6}
+          x={Math.min(xs(barre.from), xs(barre.to)) - 6}
           y={yMid(barre.fret) - 6}
-          width={xs(barre.to) - xs(barre.from) + 12}
+          width={Math.abs(xs(barre.to) - xs(barre.from)) + 12}
           height={12}
           rx={6}
           className="cd-dot"
@@ -82,7 +87,7 @@ export default function ChordDiagram({ chord, size = 140, showName = true, highl
         )
       })}
       {barre && (
-        <text x={xs(barre.from) - 1} y={yMid(barre.fret) + 3.5} textAnchor="middle" className="cd-finger">
+        <text x={xs(barre.from)} y={yMid(barre.fret) + 3.5} textAnchor="middle" className="cd-finger">
           1
         </text>
       )}

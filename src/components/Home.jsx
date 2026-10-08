@@ -1,18 +1,26 @@
-import { useState } from 'react'
 import { LESSONS } from '../data/lessons.js'
-import { useProgress } from '../lib/progress.jsx'
+import { useProgress, today } from '../lib/progress.jsx'
+import { useSettings } from '../lib/settings.jsx'
+import { buildPlan } from '../lib/coach.js'
 
 export default function Home({ navigate }) {
-  const { doneCount, nextLesson, streak, bests, days, reset } = useProgress()
-  const [confirming, setConfirming] = useState(false)
+  const progress = useProgress()
+  const { doneCount, nextLesson, streak, bests, days } = progress
+  const { label } = useSettings()
   const pct = Math.round((doneCount / LESSONS.length) * 100)
-  const topBests = Object.entries(bests).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const plan = buildPlan(progress, today())
+  const doneItems = plan.filter((i) => i.done).length
+  const minutes = plan.reduce((s, i) => s + i.minutes, 0)
+  const topBests = Object.entries(bests)
+    .filter(([k]) => k.includes('|'))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
 
   return (
     <div className="home">
       <section className="hero">
         <h1>Apprenez la guitare,<br />un quart d’heure par jour.</h1>
-        <p>Accordez, apprenez les accords, travaillez les changements et le rythme. Votre progression reste sur cet appareil.</p>
+        <p>Accordez, apprenez les accords, vérifiez-les au micro, travaillez les changements et le rythme.</p>
       </section>
 
       <div className="stats">
@@ -31,34 +39,40 @@ export default function Home({ navigate }) {
       </div>
       <div className="progress-bar" aria-label={`Progression ${pct} %`}><span style={{ width: `${pct}%` }} /></div>
 
-      {nextLesson ? (
+      <section className="coach">
+        <div className="coach-head">
+          <h3 className="section-title">Votre séance du jour</h3>
+          <span className="coach-meta">{doneItems}/{plan.length} · {minutes} min</span>
+        </div>
+        <ol className="coach-list">
+          {plan.map((item) => (
+            <li key={item.id}>
+              <button className={`coach-item${item.done ? ' done' : ''}`} onClick={() => navigate(...item.nav)}>
+                <span className="coach-check" aria-label={item.done ? 'fait' : 'à faire'}>{item.done ? '✓' : ''}</span>
+                <span className="coach-body">
+                  <strong>{item.title.replace(/([A-G][#b]?(?:maj7|add9|sus2|sus4|m7|m|7)?)(?= ↔| \(|$)/g, (m) => label(m))}</strong>
+                  <small>{item.detail}</small>
+                </span>
+                <span className="coach-min">{item.minutes} min</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+        {doneItems === plan.length && <p className="good-text center">Séance terminée, bravo ! Revenez demain : la régularité fait tout.</p>}
+      </section>
+
+      {plan.some((i) => i.id === 'lesson') ? null : nextLesson ? (
         <button className="card card-cta" onClick={() => navigate('lecons', { id: nextLesson.id })}>
-          <small>Continuer</small>
+          <small>Leçon en cours</small>
           <strong>{nextLesson.title}</strong>
           <span>{nextLesson.intro}</span>
         </button>
       ) : (
         <div className="card card-cta">
           <strong>🎉 Parcours terminé !</strong>
-          <span>Continuez les défis minute et explorez de nouvelles grilles.</span>
+          <span>Continuez les défis, les chansons et les arpèges.</span>
         </div>
       )}
-
-      <h3 className="section-title">Routine de 15 minutes</h3>
-      <div className="routine">
-        <button className="card" onClick={() => navigate('outils', { tool: 'accordeur' })}>
-          <span className="routine-time">2 min</span><strong>Accorder</strong><span>Toujours commencer juste.</span>
-        </button>
-        <button className="card" onClick={() => navigate('pratique', { mode: 'minute' })}>
-          <span className="routine-time">3 min</span><strong>Défi minute</strong><span>Une paire d’accords qui coince.</span>
-        </button>
-        <button className="card" onClick={() => navigate('pratique', { mode: 'rythmes' })}>
-          <span className="routine-time">5 min</span><strong>Rythme</strong><span>Main droite régulière.</span>
-        </button>
-        <button className="card" onClick={() => navigate('lecons', nextLesson ? { id: nextLesson.id } : {})}>
-          <span className="routine-time">5 min</span><strong>Leçon</strong><span>Un nouvel objectif.</span>
-        </button>
-      </div>
 
       {topBests.length > 0 && (
         <>
@@ -66,26 +80,12 @@ export default function Home({ navigate }) {
           <ul className="bests">
             {topBests.map(([k, v]) => (
               <li key={k}>
-                <span>{k.replace('|', ' ↔ ')}</span>
+                <span>{k.split('|').map(label).join(' ↔ ')}</span>
                 <strong>{v}</strong>
               </li>
             ))}
           </ul>
         </>
-      )}
-
-      {confirming ? (
-        <div className="reset-confirm">
-          <span>Effacer toute la progression sur cet appareil ?</span>
-          <div className="row gap center">
-            <button className="btn small" onClick={() => setConfirming(false)}>Annuler</button>
-            <button className="btn small btn-danger" onClick={() => { reset(); setConfirming(false) }}>Effacer</button>
-          </div>
-        </div>
-      ) : (
-        <button className="btn btn-ghost small reset" onClick={() => setConfirming(true)}>
-          Réinitialiser ma progression
-        </button>
       )}
     </div>
   )

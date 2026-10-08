@@ -4,6 +4,9 @@ import { useProgress, pairKey } from '../lib/progress.jsx'
 import { getCtx, click, strum } from '../lib/audio.js'
 import ChordDiagram from './ChordDiagram.jsx'
 import ChordSelect from './ChordSelect.jsx'
+import { pickBetween } from '../lib/chordDetect.js'
+import { useChordListener, PLAYING_RMS } from '../lib/useChordListener.js'
+import { useSettings } from '../lib/settings.jsx'
 
 const DURATION = 60
 
@@ -17,6 +20,32 @@ export default function MinuteChallenge({ params = {} }) {
   const timer = useRef(null)
   const countRef = useRef(0)
   const { bests, recordChallenge } = useProgress()
+  const { label } = useSettings()
+  const [autoMic, setAutoMic] = useState(false)
+  const [heard, setHeard] = useState(null)
+  const phaseRef = useRef(phase)
+  phaseRef.current = phase
+  const det = useRef({ last: null, cand: null, n: 0 })
+  const mic = useChordListener(({ analysis, rms }) => {
+    if (rms < PLAYING_RMS) return
+    const id = pickBetween(analysis, getChord(a), getChord(b))
+    if (!id) return
+    const d = det.current
+    if (id === d.cand) d.n++
+    else {
+      d.cand = id
+      d.n = 1
+    }
+    // Accord stable sur 2 analyses (≈ 0,2 s) : s'il diffère du précédent, c'est un changement
+    if (d.n === 2) {
+      setHeard(id)
+      if (phaseRef.current === 'running' && d.last && d.last !== id) {
+        countRef.current += 1
+        setCount(countRef.current)
+      }
+      d.last = id
+    }
+  })
 
   useEffect(() => {
     if (params.pair) {
@@ -31,14 +60,21 @@ export default function MinuteChallenge({ params = {} }) {
 
   const finish = useCallback(() => {
     clearInterval(timer.current)
+    mic.stop()
     const c = getCtx()
     click(c.currentTime + 0.01, true)
     click(c.currentTime + 0.15, true)
     setPhase('done')
     setRecord(recordChallenge(a, b, countRef.current))
-  }, [a, b, recordChallenge])
+  }, [a, b, recordChallenge, mic.stop])
 
-  const start = () => {
+  const start = async () => {
+    if (autoMic && !mic.listening) {
+      const ok = await mic.start()
+      if (!ok) return
+    }
+    det.current = { last: null, cand: null, n: 0 }
+    setHeard(null)
     countRef.current = 0
     setCount(0)
     setRecord(false)
@@ -69,6 +105,7 @@ export default function MinuteChallenge({ params = {} }) {
 
   const cancel = () => {
     clearInterval(timer.current)
+    mic.stop()
     setPhase('idle')
   }
 
@@ -108,7 +145,7 @@ export default function MinuteChallenge({ params = {} }) {
           <div className="chips">
             {SUGGESTED_PAIRS.map(([x, y]) => (
               <button key={x + y} className={`chip${pairKey(x, y) === pairKey(a, b) ? ' on' : ''}`} onClick={() => { setA(x); setB(y) }}>
-                {x} ↔ {y}
+                {label(x)} ↔ {label(y)}
               </button>
             ))}
           </div>
@@ -128,6 +165,11 @@ export default function MinuteChallenge({ params = {} }) {
       {phase === 'idle' && (
         <div className="center-col">
           <p className="muted">Record sur cette paire : <strong>{best || '—'}</strong></p>
+          <label className="field-inline">
+            <input type="checkbox" checked={autoMic} onChange={(e) => setAutoMic(e.target.checked)} />
+            Comptage automatique au micro
+          </label>
+          {mic.error && <p className="error small">{mic.error}</p>}
           <button className="btn btn-primary btn-big" onClick={start} disabled={a === b}>Lancer le défi</button>
         </div>
       )}
@@ -139,7 +181,7 @@ export default function MinuteChallenge({ params = {} }) {
           <div className="timer">{left}s</div>
           <button className="tap-zone" onClick={inc}>
             <strong>{count}</strong>
-            <span>Touchez à chaque changement</span>
+            <span>{mic.listening ? `🎤 J’entends : ${heard ? label(heard) : '…'}` : 'Touchez à chaque changement'}</span>
           </button>
           <button className="btn btn-ghost small" onClick={cancel}>Annuler</button>
         </div>

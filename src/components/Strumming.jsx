@@ -15,7 +15,8 @@ export default function Strumming({ params = {} }) {
   const [withGuitar, setWithGuitar] = useState(true)
   const [running, setRunning] = useState(false)
   const [slot, setSlot] = useState(-1)
-  const { markPracticed } = useProgress()
+  const { markPracticed, logActivity, recordRhythm } = useProgress()
+  const startedAt = useRef(0)
 
   const pattern = PATTERNS.find((p) => p.id === patternId) || PATTERNS[0]
   const ref = useRef({})
@@ -45,24 +46,29 @@ export default function Strumming({ params = {} }) {
     if (params.bpm) setBpm(params.bpm)
   }, [params.pattern, params.chord, params.bpm])
 
+  const stopAndLog = () => {
+    clock.stop()
+    setRunning(false)
+    setSlot(-1)
+    if (Date.now() - startedAt.current > 20000) {
+      recordRhythm(patternId, bpm)
+      logActivity('rhythm', patternId, bpm)
+    }
+  }
+
   const toggle = () => {
     if (clock.running) {
-      clock.stop()
-      setRunning(false)
-      setSlot(-1)
+      stopAndLog()
     } else {
       clock.start()
+      startedAt.current = Date.now()
       setRunning(true)
       markPracticed()
     }
   }
 
   const choosePattern = (id) => {
-    if (clock.running) {
-      clock.stop()
-      setRunning(false)
-      setSlot(-1)
-    }
+    if (clock.running) stopAndLog()
     setPatternId(id)
   }
 

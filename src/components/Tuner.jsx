@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { detectPitch, median } from '../lib/pitch.js'
 import { getCtx, freqToMidi, midiToFreq, OPEN_MIDI, STRING_NAMES, NOTE_FR, NOTE_EN, playNote } from '../lib/audio.js'
 import { useProgress } from '../lib/progress.jsx'
+import { useSettings } from '../lib/settings.jsx'
 
 export default function Tuner() {
   const [listening, setListening] = useState(false)
@@ -10,7 +11,10 @@ export default function Tuner() {
   const streamRef = useRef(null)
   const rafRef = useRef(0)
   const historyRef = useRef([])
-  const { markPracticed } = useProgress()
+  const { markPracticed, logActivity } = useProgress()
+  const tunedLogged = useRef(false)
+  const { notation } = useSettings()
+  const [MAIN, SUB] = notation === 'fr' ? [NOTE_FR, NOTE_EN] : [NOTE_EN, NOTE_FR]
 
   const stop = () => {
     cancelAnimationFrame(rafRef.current)
@@ -84,6 +88,12 @@ export default function Tuner() {
   const target = reading && Math.abs(reading.stringCents) <= 100 ? reading.stringCents : reading?.cents
   const clamped = Math.max(-50, Math.min(50, target ?? 0))
   const inTune = reading && Math.abs(target) <= 5
+  useEffect(() => {
+    if (inTune && !tunedLogged.current) {
+      tunedLogged.current = true
+      logActivity('tune')
+    }
+  }, [inTune, logActivity])
   const noteIdx = reading ? ((reading.midi % 12) + 12) % 12 : 0
 
   return (
@@ -92,8 +102,8 @@ export default function Tuner() {
         <div className="tuner-note">
           {reading ? (
             <>
-              <span className="tuner-note-main">{NOTE_EN[noteIdx]}</span>
-              <span className="tuner-note-sub">{NOTE_FR[noteIdx]} · {reading.freq.toFixed(1)} Hz</span>
+              <span className="tuner-note-main">{MAIN[noteIdx]}</span>
+              <span className="tuner-note-sub">{SUB[noteIdx]} · {reading.freq.toFixed(1)} Hz</span>
             </>
           ) : (
             <span className="tuner-note-sub">{listening ? 'Jouez une corde…' : 'Accordeur au micro'}</span>
@@ -135,7 +145,7 @@ export default function Tuner() {
             className={`ref-string${reading && reading.string === i && Math.abs(reading.stringCents) <= 100 ? ' active' : ''}`}
             onClick={() => playNote(m, i)}
           >
-            <strong>{NOTE_EN[m % 12]}</strong>
+            <strong>{MAIN[m % 12]}</strong>
             <span>{6 - i}</span>
             <small>{midiToFreq(m).toFixed(0)} Hz</small>
           </button>
