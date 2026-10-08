@@ -9,6 +9,7 @@ import Strumming from './components/Strumming.jsx'
 import Tuner from './components/Tuner.jsx'
 import Metronome from './components/Metronome.jsx'
 import Tabs from './components/Tabs.jsx'
+import SoundToggle from './components/SoundToggle.jsx'
 
 const NAV = [
   ['accueil', 'Accueil', '⌂'],
@@ -83,6 +84,7 @@ export default function App() {
               <button key={id} className={tab === id ? 'on' : ''} onClick={() => navigate(id)}>{label}</button>
             ))}
           </nav>
+          <SoundToggle />
         </header>
 
         <main className="content">

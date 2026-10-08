@@ -45,6 +45,9 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .brand { background: none; border: 0; font-family: var(--display); font-size: 1.35rem; font-weight: 700; display: flex; gap: 8px; align-items: center; padding: 0; }
 .brand-mark { color: var(--accent); }
 .nav-desktop { display: none; gap: 4px; }
+.sound-toggle { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.sound-toggle button { border: 0; background: none; padding: 5px 11px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.sound-toggle button.on { background: var(--accent); color: var(--accent-ink); }
 .nav-desktop button { background: none; border: 0; padding: 8px 14px; border-radius: 999px; color: var(--muted); font-weight: 500; }
 .nav-desktop button.on { background: var(--card-2); color: var(--text); }
 .nav-mobile {

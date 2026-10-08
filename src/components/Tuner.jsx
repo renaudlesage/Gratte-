@@ -133,7 +133,7 @@ export default function Tuner() {
           <button
             key={m}
             className={`ref-string${reading && reading.string === i && Math.abs(reading.stringCents) <= 100 ? ' active' : ''}`}
-            onClick={() => playNote(m)}
+            onClick={() => playNote(m, i)}
           >
             <strong>{NOTE_EN[m % 12]}</strong>
             <span>{6 - i}</span>

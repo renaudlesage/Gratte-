@@ -13,7 +13,12 @@ Application web (React + Vite) pour apprendre la guitare en autonomie, en franç
 - **Métronome** : 40–220 BPM, tap tempo, mesures de 2 à 7 temps, accent.
 - **Accueil** : série de jours, progression, routine de 15 minutes, records.
 
-Le son des cordes est synthétisé (algorithme Karplus-Strong), sans aucun fichier audio.
+Le son des cordes est synthétisé (Karplus-Strong étendu), sans aucun fichier audio. Deux timbres au choix dans l'en-tête :
+
+- **Acoustique** (par défaut) : cordes acier avec sustain réaliste par corde, attaque de médiator, position de pincement et caisse de résonance simulée (modes de la table d'harmonie).
+- **Électrique** : son clair, sustain long.
+
+Une corde rejouée étouffe la note précédente sur cette corde, comme sur un vrai instrument.
 
 ## Démarrer
 
