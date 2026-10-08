@@ -7,7 +7,7 @@ export const LESSONS = [
     intro: "Avant de jouer, une guitare juste et une bonne posture. C'est le réflexe de chaque séance.",
     steps: [
       "Asseyez-vous droit, la caisse posée sur la cuisse droite (gauchers : l'inverse), le manche légèrement relevé.",
-      'Les cordes se numérotent de 1 (la plus fine, en bas) à 6 (la plus grosse, en haut) : Mi grave, La, Ré, Sol, Si, Mi aigu.',
+      'Les cordes se numérotent de 6 (la plus grosse, en haut quand vous jouez) à 1 (la plus fine, en bas) : 6 Mi grave, 5 La, 4 Ré, 3 Sol, 2 Si, 1 Mi aigu. Moyen mnémotechnique : « Mi La Ré Sol Si Mi ».',
       "Ouvrez l'accordeur, autorisez le micro, jouez une corde à la fois et tournez la mécanique jusqu'à ce que l'aiguille soit au centre.",
       'Pouce de la main gauche derrière le manche, à peu près en face du majeur. Les doigts arrivent sur les cordes par le bout, ongles courts.',
     ],
