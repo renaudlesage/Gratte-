@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { VOICES, strum } from '../lib/audio.js'
 import { useSettings } from '../lib/settings.jsx'
 import { useProgress } from '../lib/progress.jsx'
+import { wakeLockSupported } from '../lib/useWakeLock.js'
 import { buildIcs, notificationsSupported, enableNotifications, disableNotifications } from '../lib/reminder.js'
 
 function Segmented({ value, options, onChange, name }) {
@@ -53,6 +54,22 @@ export default function Settings() {
           <small>Utilisé pour les accords, rythmes, arpèges et chansons.</small>
         </div>
         <Segmented name="Son de guitare" value={s.voice} options={VOICES} onChange={(v) => { s.update({ voice: v }); strum([3, 2, 0, 0, 0, 3]) }} />
+      </section>
+
+      <section className="setting">
+        <div>
+          <strong>Garder l’écran allumé</strong>
+          <small>
+            {!wakeLockSupported()
+              ? 'Non pris en charge par ce navigateur. Sur iPhone/iPad, mettez à jour vers iOS 16.4 ou plus récent ; sinon, allongez le délai de verrouillage dans les réglages de l’appareil.'
+              : s.keepAwake
+                ? s.awake
+                  ? 'Actif : l’écran ne se verrouille pas tant que l’appli est affichée.'
+                  : 'Activé : s’applique dès que vous touchez l’écran (le navigateur peut le refuser en mode économie d’énergie).'
+                : 'Désactivé : l’appareil se verrouille selon ses propres réglages.'}
+          </small>
+        </div>
+        <Segmented name="Garder l’écran allumé" value={s.keepAwake} options={[[true, 'Oui'], [false, 'Non']]} onChange={(v) => s.update({ keepAwake: v })} />
       </section>
 
       <section className="setting">

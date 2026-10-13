@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { getVoice, setVoice as setAudioVoice } from './audio.js'
 import { chordLabel, noteName } from './music.js'
+import { useWakeLock } from './useWakeLock.js'
 
 const KEY = 'gratte.settings.v1'
-const DEFAULTS = { notation: 'en', lefty: false, rhythmLatency: null, theme: 'sombre', tuning: 'standard', reminder: null }
+const DEFAULTS = { notation: 'en', lefty: false, rhythmLatency: null, theme: 'sombre', tuning: 'standard', reminder: null, keepAwake: true }
 
 function load() {
   try {
@@ -32,6 +33,9 @@ export function SettingsProvider({ children }) {
     })
   }, [])
 
+  // Écran toujours allumé pendant l'utilisation (réglable)
+  const awake = useWakeLock(s.keepAwake)
+
   // Thème : sombre (défaut), clair ou automatique (suit le système)
   useEffect(() => {
     const root = document.documentElement
@@ -43,11 +47,12 @@ export function SettingsProvider({ children }) {
   const value = useMemo(
     () => ({
       ...s,
+      awake,
       update,
       label: (name) => chordLabel(name, s.notation),
       note: (pc) => noteName(pc, s.notation),
     }),
-    [s, update],
+    [s, update, awake],
   )
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>
 }

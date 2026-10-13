@@ -40,7 +40,7 @@ Application web (React + Vite) pour apprendre la guitare en autonomie, en franç
 - **Rappel quotidien** : événement d'agenda récurrent (.ics, fonctionne partout) et notifications de l'appli installée (Chrome/Android, au mieux).
 - **Thème** sombre, clair ou automatique.
 
-**Réglages** : son acoustique ou électrique, thème, notation C/D/E ou Do/Ré/Mi, mode gaucher, rappel, installation, synchronisation.
+**Réglages** : écran toujours allumé pendant l'utilisation (Wake Lock, activé par défaut), son acoustique ou électrique, thème, notation C/D/E ou Do/Ré/Mi, mode gaucher, rappel, installation, synchronisation.
 
 Le son est synthétisé (Karplus-Strong étendu, caisse de résonance simulée), sans fichier audio.
 
