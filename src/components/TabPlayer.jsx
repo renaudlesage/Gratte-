@@ -5,6 +5,16 @@ import { resolveChord } from '../lib/music.js'
 import { useSettings } from '../lib/settings.jsx'
 import { useProgress } from '../lib/progress.jsx'
 import BpmControl from './BpmControl.jsx'
+import { StaffCell, TrebleClef, noteNameOf, computeBeams, STAFF_HEIGHT } from './Staff.jsx'
+
+const VIEW_KEY = 'gratte.tabview'
+const readView = () => {
+  try {
+    return JSON.parse(localStorage.getItem(VIEW_KEY)) || { view: 'both', names: false }
+  } catch {
+    return { view: 'both', names: false }
+  }
+}
 
 const TECH_LABEL = { h: 'h', p: 'p', '/': '/', '\\': '\\' }
 
@@ -34,7 +44,19 @@ export default function TabPlayer({ params = {} }) {
   const [mine, setMine] = useState(true) // entendre ma voix
   const [other, setOther] = useState(false) // entendre l'autre voix (duo)
   const [chords, setChords] = useState(false) // accords d'accompagnement
-  const { label } = useSettings()
+  const { label, note } = useSettings()
+  const [display, setDisplay] = useState(readView) // affichage : tablature, partition ou les deux
+  const setView = (patch) => {
+    const next = { ...display, ...patch }
+    setDisplay(next)
+    try {
+      localStorage.setItem(VIEW_KEY, JSON.stringify(next))
+    } catch {
+      /* stockage indisponible */
+    }
+  }
+  const showStaff = display.view !== 'tab'
+  const showTab = display.view !== 'staff'
   const partner = tab.partner ? TABS.find((t) => t.id === tab.partner) : null
   const hasChords = tab.notes.some((ev) => ev.ch)
   const [running, setRunning] = useState(false)
@@ -113,6 +135,7 @@ export default function TabPlayer({ params = {} }) {
     if (scroller.current) scroller.current.scrollLeft = 0
   }, [tabId])
 
+  const beams = useMemo(() => computeBeams(tab.notes, tab.beats), [tab])
   const barLen = tab.beats * 2
   const isBar = (i) => i > 0 && timeline.starts[i] % barLen === 0
 
@@ -160,6 +183,17 @@ export default function TabPlayer({ params = {} }) {
         </div>
       ))}
       {tab.by && <p className="small muted">{tab.by}</p>}
+      <div className="row wrap gap view-switch">
+        <div className="segmented" role="radiogroup" aria-label="Affichage">
+          {[['tab', 'Tablature'], ['staff', 'Partition'], ['both', 'Les deux']].map(([id, name]) => (
+            <button key={id} role="radio" aria-checked={display.view === id} className={display.view === id ? 'on' : ''} onClick={() => setView({ view: id })}>{name}</button>
+          ))}
+        </div>
+        <label className="field-inline">
+          <input id="tab-names" type="checkbox" checked={display.names} onChange={(e) => setView({ names: e.target.checked })} />
+          Nom des notes
+        </label>
+      </div>
       <p className="muted">{tab.tip}</p>
 
       <div className="tab-scroll" ref={scroller}>
@@ -170,7 +204,31 @@ export default function TabPlayer({ params = {} }) {
               <span key={i} data-i={i} className={`ts-cell${i === cur ? ' now' : ''}${ev.ch ? ' chord' : ''}${isBar(i) ? ' bar' : ''}`} style={{ flexGrow: ev.d }}>{ev.ch ? label(ev.ch) : ev.fermata ? '𝄐' : ev.tech === 'pm' ? 'PM' : ''}</span>
             ))}
           </div>
-          {[1, 2, 3, 4, 5, 6].map((str) => (
+          {showStaff && (
+            <div className="tabsheet-row staff-row" style={{ height: STAFF_HEIGHT }}>
+              <span className="tab-name staff-name">
+                <TrebleClef />
+                <span className="st-time">
+                  <b>{tab.beats}</b>
+                  <b>4</b>
+                </span>
+              </span>
+              {tab.notes.map((ev, i) => (
+                <span key={i} className={`ts-cell staff${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={{ flexGrow: ev.d }}>
+                  <StaffCell ev={ev} beam={beams[i]} />
+                </span>
+              ))}
+            </div>
+          )}
+          {display.names && (
+            <div className="tabsheet-row names-row">
+              <span className="tab-name" />
+              {tab.notes.map((ev, i) => (
+                <span key={i} className={`ts-cell nname${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={{ flexGrow: ev.d }}>{noteNameOf(ev, note)}</span>
+              ))}
+            </div>
+          )}
+          {showTab && [1, 2, 3, 4, 5, 6].map((str) => (
             <div key={str} className="tabsheet-row">
               <span className="tab-name">{['e', 'B', 'G', 'D', 'A', 'E'][str - 1]}</span>
               {tab.notes.map((ev, i) => {
@@ -190,7 +248,10 @@ export default function TabPlayer({ params = {} }) {
           ))}
         </div>
       </div>
-      <p className="muted small center">Lecture de bas en haut : la ligne du bas est la corde grave (Mi). Le chiffre est la case à jouer, 0 = corde à vide.</p>
+      <p className="muted small center">
+        {showTab ? 'Tablature : la ligne du bas est la corde grave (Mi), le chiffre est la case (0 = à vide). ' : ''}
+        {showStaff ? 'Partition : notes écrites comme pour la guitare (une octave au-dessus du son réel).' : ''}
+      </p>
 
       <BpmControl bpm={bpm} setBpm={setBpm} min={30} max={180} tap={false} />
       <div className="row center gap">

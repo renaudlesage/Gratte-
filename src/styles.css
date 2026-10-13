@@ -532,3 +532,47 @@ input[type="time"].small-input { width: 120px; }
 .ts-cell.bar { box-shadow: inset 1px 0 0 var(--muted); }
 .tabsheet { min-width: max(100%, calc(var(--cells, 16) * 26px)); }
 .tabsheet-row .tab-name { position: sticky; left: -10px; z-index: 1; background: var(--card); align-self: stretch; display: grid; place-items: center; }
+
+/* ---------- Partition ---------- */
+.view-switch { align-items: center; margin: 4px 0 8px; }
+.staff-row { align-items: stretch; }
+.tabsheet-row .tab-name.staff-name { width: 52px; display: flex; align-items: flex-start; justify-content: flex-start; padding: 0; position: sticky; }
+.tabsheet-row .tab-name { width: 52px; }
+.st-time { display: flex; flex-direction: column; margin-top: 36px; margin-left: -4px; font-family: var(--display); font-weight: 700; font-size: 15px; line-height: 16px; color: var(--text); }
+.st-clef-line { stroke: var(--muted); stroke-width: 1; }
+.st-clef-path { fill: none; stroke: var(--text); stroke-width: 2.2; stroke-linecap: round; }
+.ts-cell.staff { position: relative; display: block; height: 100%;
+  background: repeating-linear-gradient(to bottom, transparent 0 39.5px, transparent 39.5px) ,
+    linear-gradient(var(--muted), var(--muted)) 0 40px / 100% 1px no-repeat,
+    linear-gradient(var(--muted), var(--muted)) 0 48px / 100% 1px no-repeat,
+    linear-gradient(var(--muted), var(--muted)) 0 56px / 100% 1px no-repeat,
+    linear-gradient(var(--muted), var(--muted)) 0 64px / 100% 1px no-repeat,
+    linear-gradient(var(--muted), var(--muted)) 0 72px / 100% 1px no-repeat; }
+.ts-cell.staff.now { background-color: color-mix(in srgb, var(--accent) 22%, transparent); }
+.st-note { position: absolute; left: 8px; top: 0; width: 14px; height: 100%; }
+.st-head { position: absolute; left: 0; width: 10px; height: 7.5px; margin-top: -3.75px; border-radius: 50%; background: var(--text); transform: rotate(-20deg); }
+.st-head.hollow { background: transparent; border: 1.6px solid var(--text); box-sizing: border-box; }
+.ts-cell.staff.now .st-head { background: var(--accent); }
+.ts-cell.staff.now .st-head.hollow { background: transparent; border-color: var(--accent); }
+.st-ledger { position: absolute; left: -3px; width: 16px; height: 1px; background: var(--muted); }
+.st-stem { position: absolute; width: 1.4px; background: var(--text); }
+.st-stem.up { left: 9.2px; }
+.st-stem.down { left: 0; }
+.st-stem.chord-stem { left: 9.2px; }
+.st-flag { position: absolute; left: 0; width: 7px; height: 12px; border-right: 1.6px solid var(--text); border-radius: 0 0 8px 0; }
+.st-flag.up { top: 0; border-bottom: 1.6px solid var(--text); border-radius: 0 0 9px 0; transform: skewY(25deg); }
+.st-flag.down { bottom: 0; border-top: 1.6px solid var(--text); border-radius: 0 9px 0 0; transform: skewY(-25deg); }
+.st-dot { position: absolute; left: 13px; width: 3px; height: 3px; margin-top: -1.5px; border-radius: 50%; background: var(--text); }
+.st-sharp { position: absolute; left: -9px; margin-top: -9px; font-size: 13px; line-height: 18px; color: var(--text); }
+.st-rest-block { position: absolute; left: 0; width: 10px; height: 4px; background: var(--text); }
+.st-rest-glyph { position: absolute; left: 0; font-size: 20px; line-height: 24px; color: var(--text); font-family: 'Noto Music', 'Bravura', 'Apple Symbols', 'Segoe UI Symbol', serif; }
+.names-row { height: 20px; }
+.ts-cell.nname { font-size: 0.68rem; color: var(--muted); font-weight: 600; justify-content: start; padding-left: 4px; white-space: nowrap; }
+.ts-cell.nname.now { color: var(--text); }
+.st-beam { position: absolute; z-index: 2; height: 4px; width: 100%; background: var(--text); }
+.st-beam.up { left: calc(8px + 9.2px); }
+.st-beam.down { left: 8px; }
+.st-note { z-index: 2; }
+.tabsheet-row .tab-name { z-index: 3; }
+.tabsheet-row .tab-name.staff-name { background: var(--card); box-shadow: 4px 0 6px -4px color-mix(in srgb, var(--bg) 70%, transparent); }
+.st-time { margin-left: 2px; }
