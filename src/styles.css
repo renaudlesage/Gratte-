@@ -527,3 +527,8 @@ input[type="time"].small-input { width: 120px; }
   .player-side .player-dock { order: -1; }
   .player-side .player-dock .beat-dots { display: none; }
 }
+.ts-cell.chord { color: var(--accent-2); font-size: 0.78rem; justify-content: start; }
+.duo-box { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; margin-top: 10px; }
+.ts-cell.bar { box-shadow: inset 1px 0 0 var(--muted); }
+.tabsheet { min-width: max(100%, calc(var(--cells, 16) * 26px)); }
+.tabsheet-row .tab-name { position: sticky; left: -10px; z-index: 1; background: var(--card); align-self: stretch; display: grid; place-items: center; }

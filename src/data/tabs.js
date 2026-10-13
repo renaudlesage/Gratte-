@@ -2,6 +2,8 @@
 // tech : 'h' hammer-on, 'p' pull-off, '/' glissé montant, '\\' glissé descendant, 'pm' étouffé (palm mute).
 const N = (s, f, d = 1, tech) => ({ n: [[s, f]], d, tech })
 const C = (notes, d = 1, tech) => ({ n: notes, d, tech })
+const X = (s, f, d, extra) => ({ n: [[s, f]], d, ...extra }) // note avec accord (ch) ou point d'orgue
+const R = (d) => ({ n: [], d }) // silence
 
 const spider = []
 for (let s = 6; s >= 1; s--) for (let f = 1; f <= 4; f++) spider.push(N(s, f))
@@ -112,6 +114,88 @@ export const TABS = [
       N(2, 0, 2), N(2, 1, 2), N(2, 3, 4), N(2, 0, 2), N(2, 1, 2), N(2, 3, 4),
       N(2, 3, 1), N(1, 0, 1), N(2, 3, 1), N(2, 1, 1), N(2, 0, 2), N(3, 0, 2), N(2, 3, 1), N(1, 0, 1), N(2, 3, 1), N(2, 1, 1), N(2, 0, 2), N(3, 0, 2),
       N(3, 0, 2), N(4, 0, 2), N(3, 0, 4), N(3, 0, 2), N(4, 0, 2), N(3, 0, 4),
+    ],
+  },
+  // ---------- Morceaux du cours (transcrits des partitions de Ren) ----------
+  {
+    id: 'les-choux',
+    title: 'Les choux',
+    kind: 'cours',
+    by: 'Traditionnel · partition du cours',
+    level: 1,
+    bpm: 80,
+    beats: 2,
+    tip: 'Mesure à 2 temps, presque tout en croches. Quatre notes : Ré (corde 4 à vide), Sol (corde 3 à vide), La (corde 3, case 2), Si (corde 2 à vide), plus un Do (corde 2, case 1) vers la fin.',
+    notes: [
+      N(4, 0), N(4, 0), N(2, 0), N(2, 0),
+      N(3, 2), N(2, 0), N(3, 0, 2),
+      N(3, 0), N(3, 0), N(3, 2), N(3, 2),
+      N(3, 0), N(3, 2), N(2, 0), N(3, 0),
+      N(4, 0), N(4, 0), N(2, 0), N(2, 0),
+      N(3, 2), N(2, 0), N(3, 0, 2),
+      N(3, 0), N(3, 0), N(3, 2), N(2, 1),
+      N(2, 0), N(3, 2), N(3, 0, 2),
+    ],
+  },
+  {
+    id: 'joyeux-anniversaire',
+    title: 'Joyeux anniversaire',
+    kind: 'cours',
+    by: 'Mildred et Patty Hill · partition du cours',
+    level: 2,
+    bpm: 90,
+    beats: 3,
+    tip: 'Valse à 3 temps qui commence par une levée de deux croches (« Joy-eux »). Le point d’orgue (𝄐) de la 6e mesure se tient un peu plus longtemps quand on chante. Cochez « Accords » pour entendre l’accompagnement de la 2e ligne.',
+    notes: [
+      R(4), N(3, 0), N(3, 0),
+      N(3, 2, 2), N(3, 0, 2), N(2, 1, 2),
+      N(2, 0, 4), N(3, 0), N(3, 0),
+      N(3, 2, 2), N(3, 0, 2), N(2, 3, 2),
+      N(2, 1, 4), N(3, 0), N(3, 0),
+      X(1, 3, 2, { ch: 'C' }), N(1, 0, 2), X(2, 1, 2, { ch: 'C7' }),
+      X(2, 0, 1, { ch: 'F' }), N(3, 2), X(3, 2, 2, { fermata: true }), N(1, 1), N(1, 1),
+      X(1, 0, 2, { ch: 'C' }), N(2, 1, 2), X(2, 3, 2, { ch: 'G7' }),
+      X(2, 1, 6, { ch: 'C' }),
+    ],
+  },
+  {
+    id: 'vive-le-vent',
+    title: 'Vive le vent (mélodie)',
+    kind: 'cours',
+    by: 'James Pierpont (1857) · partition du cours',
+    level: 2,
+    bpm: 100,
+    beats: 4,
+    partner: 'vive-le-vent-basse',
+    tip: 'Tout se joue sur les cordes 2 et 3 : Si (corde 2 à vide), Do (case 1), Ré (case 3), Sol (corde 3 à vide), La (corde 3, case 2). Cochez « Entendre l’autre voix » pour jouer avec l’accompagnement.',
+    notes: [
+      N(2, 0), N(2, 0), N(2, 0, 2), N(2, 0), N(2, 0), N(2, 0, 2),
+      N(2, 0), N(2, 3), N(3, 0), N(3, 2), N(2, 0, 4),
+      N(2, 1), N(2, 1), N(2, 1, 2), N(2, 1), N(2, 0), N(2, 0, 2),
+      N(2, 0), N(3, 2), N(3, 2), N(2, 0), N(3, 2, 2), N(2, 3, 2),
+      N(2, 0), N(2, 0), N(2, 0, 2), N(2, 0), N(2, 0), N(2, 0, 2),
+      N(2, 0), N(2, 3), N(3, 0), N(3, 2), N(2, 0, 4),
+      N(2, 1), N(2, 1), N(2, 1, 2), N(2, 1), N(2, 0), N(2, 0, 2),
+      N(2, 3), N(2, 3), N(2, 1), N(3, 2), N(3, 0, 4),
+    ],
+  },
+  {
+    id: 'vive-le-vent-basse',
+    title: 'Vive le vent (accompagnement)',
+    kind: 'cours',
+    by: 'Basse de la partition du cours',
+    level: 2,
+    bpm: 100,
+    beats: 4,
+    partner: 'vive-le-vent',
+    tip: 'Basses alternées en croches : Sol grave (corde 6, case 3) et Ré (corde 4 à vide), puis Mi (corde 4, case 2) aux mesures 3 et 7, et La (corde 3, case 2) aux mesures 4 et 8. Cochez « Entendre l’autre voix » pour avoir la mélodie.',
+    notes: [
+      ...[1, 2].flatMap(() => [N(6, 3), N(4, 0), N(6, 3), N(4, 0), N(6, 3), N(4, 0), N(6, 3), N(4, 0)]),
+      N(6, 3), N(4, 2), N(6, 3), N(4, 2), N(6, 3), N(4, 0), N(6, 3), N(4, 0),
+      N(4, 0), N(3, 2), N(4, 0), N(3, 2), N(4, 0, 2), N(4, 0, 2),
+      ...[1, 2].flatMap(() => [N(6, 3), N(4, 0), N(6, 3), N(4, 0), N(6, 3), N(4, 0), N(6, 3), N(4, 0)]),
+      N(6, 3), N(4, 2), N(6, 3), N(4, 2), N(6, 3), N(4, 0), N(6, 3), N(4, 0),
+      N(4, 0), N(3, 2), N(4, 0), N(4, 0), N(6, 3, 4),
     ],
   },
 ]
