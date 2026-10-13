@@ -9,8 +9,9 @@ export const CHORDS = [
   { id: 'E', fr: 'Mi majeur', type: 'majeur', level: 1, frets: [0, 2, 2, 1, 0, 0], fingers: [0, 2, 3, 1, 0, 0] },
   { id: 'A', fr: 'La majeur', type: 'majeur', level: 1, frets: [-1, 0, 2, 2, 2, 0], fingers: [0, 0, 1, 2, 3, 0] },
   { id: 'D', fr: 'Ré majeur', type: 'majeur', level: 1, frets: [-1, -1, 0, 2, 3, 2], fingers: [0, 0, 0, 1, 3, 2] },
-  { id: 'G', fr: 'Sol majeur', type: 'majeur', level: 1, frets: [3, 2, 0, 0, 0, 3], fingers: [2, 1, 0, 0, 0, 3] },
+  { id: 'G', fr: 'Sol majeur', type: 'majeur', level: 1, frets: [3, 2, 0, 0, 0, 3], fingers: [2, 1, 0, 0, 0, 4] },
   { id: 'C', fr: 'Do majeur', type: 'majeur', level: 1, frets: [-1, 3, 2, 0, 1, 0], fingers: [0, 3, 2, 0, 1, 0] },
+  { id: 'Cmaj7', fr: 'Do maj7', type: 'autre', level: 1, frets: [-1, 3, 2, 0, 0, 0], fingers: [0, 3, 2, 0, 0, 0] },
   { id: 'Cadd9', fr: 'Do add9', type: 'autre', level: 2, frets: [-1, 3, 2, 0, 3, 0], fingers: [0, 2, 1, 0, 3, 0] },
   { id: 'Asus2', fr: 'La sus2', type: 'autre', level: 2, frets: [-1, 0, 2, 2, 0, 0], fingers: [0, 0, 1, 2, 0, 0] },
   { id: 'Dsus4', fr: 'Ré sus4', type: 'autre', level: 2, frets: [-1, -1, 0, 2, 3, 3], fingers: [0, 0, 0, 1, 3, 4] },
@@ -39,7 +40,7 @@ export const getChord = (id) => CHORD_MAP[id]
 export const SUGGESTED_PAIRS = [
   ['Em', 'Am'], ['D', 'A'], ['A', 'E'], ['G', 'C'], ['C', 'Am'], ['D', 'G'],
   ['Em', 'G'], ['G', 'D'], ['E7', 'A7'], ['C', 'Fmaj7'], ['F', 'C'], ['Bm', 'G'],
-  ['E5', 'A5'], ['G5', 'C5'],
+  ['E5', 'A5'], ['G5', 'C5'], ['Em', 'Cmaj7'],
 ]
 
 export const PROGRESSIONS = [
@@ -49,5 +50,7 @@ export const PROGRESSIONS = [
   { name: 'Folk en Ré', chords: ['D', 'A', 'G', 'D'] },
   { name: 'Blues en Mi', chords: ['E7', 'E7', 'A7', 'E7', 'B7', 'A7', 'E7', 'B7'] },
   { name: 'Débutant (2 accords)', chords: ['Em', 'Am'] },
+  { name: 'Devoir du cours : Em – Cmaj7', chords: ['Em', 'Cmaj7'] },
+  { name: 'Les 2 premiers accords : G – D', chords: ['G', 'D'] },
   { name: 'Rock en power chords', chords: ['E5', 'G5', 'A5', 'C5'] },
 ]

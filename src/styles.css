@@ -576,3 +576,13 @@ input[type="time"].small-input { width: 120px; }
 .tabsheet-row .tab-name { z-index: 3; }
 .tabsheet-row .tab-name.staff-name { background: var(--card); box-shadow: 4px 0 6px -4px color-mix(in srgb, var(--bg) 70%, transparent); }
 .st-time { margin-left: 2px; }
+.lyrics-row { height: 22px; }
+.ts-cell.lyr { font-size: 0.78rem; color: var(--text); justify-content: start; padding-left: 4px; white-space: nowrap; font-style: italic; }
+.ts-cell.lyr.now { color: var(--accent-2); font-weight: 700; }
+.tabsheet { min-width: max(100%, calc(var(--cells, 16) * var(--cellw, 26px))); }
+.tabsheet-row .tab-name.staff-name { width: 62px; }
+.tabsheet-row .tab-name { width: 62px; }
+.st-keysig { position: absolute; left: 30px; top: 32px; font-size: 16px; line-height: 16px; color: var(--text); }
+.staff-name { position: sticky; }
+.staff-name .st-time { position: absolute; left: 42px; top: 0; margin: 36px 0 0; }
+.ts-cell.lyr { padding-right: 6px; }

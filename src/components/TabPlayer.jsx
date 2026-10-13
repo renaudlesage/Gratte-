@@ -37,7 +37,7 @@ function playEvent(ev, time, vol) {
 }
 
 export default function TabPlayer({ params = {} }) {
-  const [tabId, setTabId] = useState(params.tab || 'les-choux')
+  const [tabId, setTabId] = useState(params.tab || 'les-pompiers')
   const tab = TABS.find((t) => t.id === tabId) || TABS[0]
   const [bpm, setBpm] = useState(tab.bpm)
   const [loop, setLoop] = useState(true)
@@ -59,6 +59,7 @@ export default function TabPlayer({ params = {} }) {
   const showTab = display.view !== 'staff'
   const partner = tab.partner ? TABS.find((t) => t.id === tab.partner) : null
   const hasChords = tab.notes.some((ev) => ev.ch)
+  const hasLyrics = tab.notes.some((ev) => ev.ly)
   const [running, setRunning] = useState(false)
   const [cur, setCur] = useState(-1)
   const { markPracticed, logActivity } = useProgress()
@@ -197,7 +198,7 @@ export default function TabPlayer({ params = {} }) {
       <p className="muted">{tab.tip}</p>
 
       <div className="tab-scroll" ref={scroller}>
-        <div className="tabsheet" style={{ '--cells': timeline.total }}>
+        <div className="tabsheet" style={{ '--cells': timeline.total, '--cellw': hasLyrics ? '34px' : '26px' }}>
           <div className="tabsheet-row pm-row">
             <span className="tab-name" />
             {tab.notes.map((ev, i) => (
@@ -208,6 +209,7 @@ export default function TabPlayer({ params = {} }) {
             <div className="tabsheet-row staff-row" style={{ height: STAFF_HEIGHT }}>
               <span className="tab-name staff-name">
                 <TrebleClef />
+                {tab.sharps ? <span className="st-keysig" title="Armure : Fa dièse">♯</span> : null}
                 <span className="st-time">
                   <b>{tab.beats}</b>
                   <b>4</b>
@@ -217,6 +219,14 @@ export default function TabPlayer({ params = {} }) {
                 <span key={i} className={`ts-cell staff${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={{ flexGrow: ev.d }}>
                   <StaffCell ev={ev} beam={beams[i]} />
                 </span>
+              ))}
+            </div>
+          )}
+          {hasLyrics && (
+            <div className="tabsheet-row lyrics-row">
+              <span className="tab-name" />
+              {tab.notes.map((ev, i) => (
+                <span key={i} className={`ts-cell lyr${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={{ flexGrow: ev.d }}>{ev.ly || ''}</span>
               ))}
             </div>
           )}

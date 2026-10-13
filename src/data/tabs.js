@@ -118,6 +118,48 @@ export const TABS = [
   },
   // ---------- Morceaux du cours (transcrits des partitions de Ren) ----------
   {
+    id: 'les-pompiers',
+    title: 'Les pompiers',
+    kind: 'cours',
+    by: 'Traditionnel · « Les 2 premiers morceaux à la guitare »',
+    level: 1,
+    bpm: 70,
+    beats: 2,
+    tip: 'Main droite : posez le pouce sur la dernière corde (Mi grave) et alternez toujours majeur et index (m, i, m, i…). Trois notes : Sol (corde 3 à vide), Si (corde 2 à vide) et Ré (corde 4 à vide).',
+    notes: [
+      X(3, 0, 2, { ly: 'Au' }), X(3, 0, 2, { ly: 'feu' }),
+      X(2, 0, 1, { ly: 'les' }), X(3, 0, 1, { ly: 'pom-' }), X(4, 0, 2, { ly: 'piers,' }),
+      X(4, 0, 1, { ly: 'la' }), X(4, 0, 1, { ly: 'mai-' }), X(4, 0, 1, { ly: 'son' }), X(4, 0, 1, { ly: 'qui' }),
+      X(2, 0, 2, { ly: 'brû-' }), X(3, 0, 2, { ly: 'le,' }),
+      X(3, 0, 2, { ly: 'au' }), X(3, 0, 2, { ly: 'feu' }),
+      X(2, 0, 1, { ly: 'les' }), X(3, 0, 1, { ly: 'pom-' }), X(4, 0, 2, { ly: 'piers,' }),
+      X(4, 0, 1, { ly: 'v’là' }), X(4, 0, 1, { ly: 'la' }), X(4, 0, 1, { ly: 'mai-' }), X(4, 0, 1, { ly: 'son' }),
+      X(3, 0, 4, { ly: 'brû-lée !' }),
+    ],
+  },
+  {
+    id: 'la-barbichette',
+    sharps: 1, // armure : Sol majeur (Fa#)
+    title: 'La barbichette',
+    kind: 'cours',
+    by: 'Traditionnel · « Les 2 premiers morceaux à la guitare »',
+    level: 1,
+    bpm: 72,
+    beats: 2,
+    tip: 'Les 2 premiers accords (G et D) en accompagnement : cochez « Accords ». Mesure 3 : restez sur la corde 3 (③), le La se fait avec le doigt 2. Avant-dernière note : Ré sur la corde 2, case 3 (②, doigt 3). Pouce posé sur la dernière corde, alternez m et i.',
+    notes: [
+      X(3, 0, 1, { ch: 'G', ly: 'Je' }), X(3, 0, 1, { ly: 'te' }), X(3, 0, 2, { ly: 'tiens,' }),
+      X(3, 0, 1, { ly: 'tu' }), X(3, 0, 1, { ly: 'me' }), X(3, 0, 2, { ly: 'tiens' }),
+      X(3, 0, 1, { ly: 'par' }), X(3, 2, 1, { ly: 'la' }), X(2, 0, 1, { ly: 'bar-' }), X(3, 0, 1, { ly: 'bi-' }),
+      X(3, 2, 2, { ch: 'D', ly: 'chet-' }), X(4, 0, 2, { ly: 'te.' }),
+      X(3, 0, 1, { ch: 'G', ly: 'Le' }), X(3, 0, 1, { ly: 'pre-' }), X(3, 0, 2, { ly: 'mier' }),
+      X(3, 0, 1, { ly: 'de' }), X(3, 0, 1, { ly: 'nous' }), X(3, 0, 2, { ly: 'deux' }),
+      X(3, 0, 1, { ly: 'qui' }), X(3, 0, 1, { ly: 'ri-' }), X(3, 2, 2, { ch: 'D', ly: 'ra' }),
+      X(3, 0, 1, { ch: 'Em', ly: 'au-' }), X(3, 0, 1, { ly: 'ra' }), X(3, 2, 2, { ch: 'Am', ly: 'une' }),
+      X(2, 3, 2, { ch: 'D', ly: 'ta-' }), X(3, 0, 2, { ch: 'G', ly: 'pette.' }),
+    ],
+  },
+  {
     id: 'les-choux',
     title: 'Les choux',
     kind: 'cours',
@@ -160,6 +202,7 @@ export const TABS = [
   },
   {
     id: 'vive-le-vent',
+    sharps: 1, // armure : Sol majeur (Fa#)
     title: 'Vive le vent (mélodie)',
     kind: 'cours',
     by: 'James Pierpont (1857) · partition du cours',
@@ -181,6 +224,7 @@ export const TABS = [
   },
   {
     id: 'vive-le-vent-basse',
+    sharps: 1, // armure : Sol majeur (Fa#)
     title: 'Vive le vent (accompagnement)',
     kind: 'cours',
     by: 'Basse de la partition du cours',
