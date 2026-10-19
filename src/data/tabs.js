@@ -6,20 +6,22 @@ const X = (s, f, d, extra) => ({ n: [[s, f]], d, ...extra }) // note avec accord
 const R = (d) => ({ n: [], d }) // silence
 
 // Mélodie écrite en notation compacte : « [accord@]hauteur/durée[/parole] », « ~hauteur/durée » = note liée,
-// « -/durée » = silence, « | » = barre de mesure. Hauteurs écrites (guitare), placées en 1re position.
-const POS = { D4: [4, 0], E4: [4, 2], 'F#4': [4, 4], G4: [3, 0], 'G#4': [3, 1], A4: [3, 2], B4: [2, 0], 'C#5': [2, 2], D5: [2, 3], E5: [1, 0], 'F#5': [1, 2] }
+// « ^hauteur/durée » = point d'orgue, « -/durée » = silence, « | » = barre de mesure. Hauteurs écrites (guitare), placées en 1re position.
+const POS = { D4: [4, 0], E4: [4, 2], F4: [4, 3], 'F#4': [4, 4], G4: [3, 0], 'G#4': [3, 1], A4: [3, 2], B4: [2, 0], C5: [2, 1], 'C#5': [2, 2], D5: [2, 3], E5: [1, 0], 'F#5': [1, 2] }
 function melody(src) {
   return src.trim().split(/\s+/).filter((t) => t !== '|').map((tok) => {
     let ch
     if (tok.includes('@')) [ch, tok] = tok.split('@')
     const tie = tok.startsWith('~')
-    const [p, d, ly] = tok.replace('~', '').split('/')
+    const fermata = tok.startsWith('^')
+    const [p, d, ly] = tok.replace(/^[~^]/, '').split('/')
     if (p === '-') return R(Number(d))
     if (!POS[p]) throw new Error('Hauteur inconnue : ' + p)
     const ev = { n: [POS[p]], d: Number(d) }
     if (ch) ev.ch = ch
     if (ly) ev.ly = ly
     if (tie) ev.tie = true
+    if (fermata) ev.fermata = true
     return ev
   })
 }
@@ -218,6 +220,44 @@ export const TABS = [
       X(1, 0, 2, { ch: 'C' }), N(2, 1, 2), X(2, 3, 2, { ch: 'G7' }),
       X(2, 1, 6, { ch: 'C' }),
     ],
+  },
+  {
+    id: 'brabanconne',
+    res: 4, // durées en doubles croches (rythme pointé)
+    title: 'La Brabançonne',
+    kind: 'cours',
+    by: 'Charles Rogier (paroles, 1860) · François Van Campenhout (musique, 1830) · hymne national belge, version de l’enseignement officiel',
+    level: 3,
+    bpm: 76,
+    beats: 4,
+    tip: 'En Do majeur, sans dièse. Le chant commence par une levée (« Ô Bel- ») : une demi-mesure de silence la précède ici pour garder les mesures alignées. Première position : Fa corde 4 case 3, Mi corde 4 case 2, Do corde 2 case 1, Ré corde 2 case 3, Mi aigu corde 1 à vide. Beaucoup de rythmes pointés (croche pointée + double croche) : comptez lentement, puis montez le tempo. Paroles du 1er couplet ; cochez « Accords » pour l’accompagnement.',
+    notes: melody(`
+      -/8 -/2 C@G4/2/Ô E4/3 F4/1/Bel- |
+      G4/4/gi- A4/3/que, B4/1/ô C5/3/Mè- B4/1 C5/3/re E5/1/ché- |
+      G@G4/8/ri- G4/2/e, -/1 B4/1/A B4/3/toi C5/1/nos |
+      D5/8/cœurs, -/2 D5/2/à C5/3/toi B4/1/nos |
+      C@C5/8/bras; -/4 -/2 A4/2/A |
+      G4/4/toi A4/3/no- B4/1/tre C5/3/sang, B4/1 G@C5/3/ô D5/1/Pa- |
+      B4/8/tri- B4/2/e, -/2 -/4 |
+      G4/2/Nous G4/2/le G4/2/ju- B4/2/rons D5/4/tous, C5/3/tu A4/1/vi- |
+      C@G4/8/vras! -/4 A4/3/Tu G4/1/vi- |
+      G4/6/vras G4/2/tou- G4/4/jours G@A4/3/grande B4/1/et |
+      D5/8/bel- C@C5/2/le, -/2 -/2 C5/2/Et |
+      G@B4/4/ton B4/3/in- B4/1/vin- C@C5/3/ci- B4/1/ble C5/3/u- E5/1/ni- |
+      G@D5/8/té -/4 -/2 G4/2/Au- |
+      C@C5/4/ra C5/3/pour C5/1/de- C5/4/vise G@D5/3/im- C5/1/mor- |
+      B4/6/tel- C5/2 D5/4/le: -/2 D5/2/Le |
+      C@C5/6/Roi, C5/2/la C5/3/Loi, E5/1/la G@D5/3/Li- C5/1/ber- |
+      B4/8/té, -/4 -/2 B4/2/Au- |
+      C@C5/4/ra G4/2/pour G4/2/de- E5/2/vi- D5/2/se G@C5/3/im- B4/1/mor- |
+      F@A4/8/tel- A4/2/le: -/2 -/2 G@D5/2/Le |
+      C@C5/6/Roi, C5/2/la G@B4/3/Loi, A4/1/la B4/3/Li- D5/1/ber- |
+      C@C5/8/té, -/4 G4/4/Le |
+      C@E5/6/Roi, C5/2/la G@B4/3/Loi, G4/1/la A4/3/Li- G4/1/ber- |
+      G4/8/té, -/4 G4/4/Le |
+      C@E5/6/Roi, C5/2/la G@B4/3/Loi, G4/1/la B4/3/Li- D5/1/ber- |
+      C@^C5/8/té. -/8
+    `),
   },
   {
     id: 'tchant-walons',

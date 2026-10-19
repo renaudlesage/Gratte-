@@ -29,7 +29,7 @@ Application web (React + Vite) pour apprendre la guitare en autonomie, en franç
 
 **Aller plus loin**
 - **Parcours 2** (6 leçons) : tablature, power chords et palm mute, hammer-on/pull-off et glissés, arpèges, pentatonique, improvisation sur un blues.
-- **Partitions et tablatures** : morceaux du cours (Les pompiers, La barbichette, Les choux, Joyeux anniversaire, Vive le vent en duo mélodie/accompagnement, Li tchant dès Walons avec les paroles du 1er couplet), exercices techniques, gammes, phrase blues et mélodies du domaine public, avec curseur animé qui suit la lecture, barres de mesure et accords. Affichage au choix : tablature, partition (clé de sol, armure, durées jusqu'à la double croche, rythmes pointés, liaisons, croches ligaturées) ou les deux alignés, avec le nom des notes en option.
+- **Partitions et tablatures** : morceaux du cours (Les pompiers, La barbichette, Les choux, Joyeux anniversaire, Vive le vent en duo mélodie/accompagnement, Li tchant dès Walons et La Brabançonne avec les paroles du 1er couplet), exercices techniques, gammes, phrase blues et mélodies du domaine public, avec curseur animé qui suit la lecture, barres de mesure et accords. Affichage au choix : tablature, partition (clé de sol, armure, durées jusqu'à la double croche, rythmes pointés, liaisons, croches ligaturées) ou les deux alignés, avec le nom des notes en option.
 - **Gammes sur le manche** (pentatoniques, blues, majeure) avec la position 1 encadrée.
 - **Power chords** et **accordages alternatifs** (Drop D, ½ ton plus bas, Open G, Open D, DADGAD) dans l'accordeur, le manche et le dictionnaire.
 

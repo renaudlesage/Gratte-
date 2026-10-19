@@ -213,7 +213,7 @@ export default function TabPlayer({ params = {} }) {
           <div className="tabsheet-row pm-row">
             <span className="tab-name" />
             {tab.notes.map((ev, i) => (
-              <span key={i} data-i={i} className={`ts-cell${i === cur ? ' now' : ''}${ev.ch ? ' chord' : ''}${isBar(i) ? ' bar' : ''}`} style={cellStyle(ev.d)}>{ev.ch ? label(ev.ch) : ev.fermata ? '𝄐' : ev.tech === 'pm' ? 'PM' : ''}</span>
+              <span key={i} data-i={i} className={`ts-cell${i === cur ? ' now' : ''}${ev.ch ? ' chord' : ''}${isBar(i) ? ' bar' : ''}`} style={cellStyle(ev.d)}>{ev.ch ? label(ev.ch) : ''}{ev.fermata ? (ev.ch ? ' 𝄐' : '𝄐') : ''}{!ev.ch && !ev.fermata && ev.tech === 'pm' ? 'PM' : ''}</span>
             ))}
           </div>
           {showStaff && (
