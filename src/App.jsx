@@ -54,7 +54,7 @@ const PRACTICE = [
   ['enchainement', 'Enchaînement'],
   ['rythmes', 'Rythmes'],
   ['arpeges', 'Arpèges'],
-  ['tabs', 'Tablatures'],
+  ['tabs', 'Partitions'],
   ['oreille', 'Oreille'],
 ]
 

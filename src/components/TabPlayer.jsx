@@ -5,7 +5,7 @@ import { resolveChord } from '../lib/music.js'
 import { useSettings } from '../lib/settings.jsx'
 import { useProgress } from '../lib/progress.jsx'
 import BpmControl from './BpmControl.jsx'
-import { StaffCell, TrebleClef, noteNameOf, computeBeams, STAFF_HEIGHT } from './Staff.jsx'
+import { StaffCell, TrebleClef, KeySignature, keyPcsOf, noteNameOf, computeBeams, STAFF_HEIGHT } from './Staff.jsx'
 
 const VIEW_KEY = 'gratte.tabview'
 const readView = () => {
@@ -18,6 +18,9 @@ const readView = () => {
 
 const TECH_LABEL = { h: 'h', p: 'p', '/': '/', '\\': '\\' }
 
+// Largeur d'une case proportionnelle à sa durée, identique sur toutes les lignes (le rembourrage n'y change rien)
+const cellStyle = (d) => ({ flex: `${d} 0 calc(var(--cellw) * ${d})` })
+
 function buildTimeline(tab) {
   let t = 0
   const starts = tab.notes.map((ev) => {
@@ -29,6 +32,7 @@ function buildTimeline(tab) {
 }
 
 function playEvent(ev, time, vol) {
+  if (ev.tie) return // note liée : elle continue de sonner, on ne la rejoue pas
   const legato = ev.tech && ev.tech !== 'pm'
   ev.n.forEach(([str, fret]) => {
     const s = 6 - str
@@ -70,12 +74,14 @@ export default function TabPlayer({ params = {} }) {
     if (params.tab) setTabId(params.tab)
   }, [params.tab])
 
-  // Début de chaque note, en croches
+  // Début de chaque note, en subdivisions du temps (croches par défaut, doubles croches si res = 4)
+  const res = tab.res || 2
   const timeline = useMemo(() => buildTimeline(tab), [tab])
   const partnerTl = useMemo(() => (partner ? buildTimeline(partner) : null), [partner])
 
   const ref = useRef({})
   ref.current = { tab, timeline, loop, mine, other, chords, partner, partnerTl }
+  // L'horloge avance d'une subdivision du morceau à chaque pas
 
   const clockRef = useRef(null)
   if (!clockRef.current) {
@@ -120,6 +126,7 @@ export default function TabPlayer({ params = {} }) {
   const clock = clockRef.current
   clock.bpm = bpm
   clock.beatsPerBar = tab.beats
+  clock.subdivision = res
 
   useEffect(() => () => clock.stop(), [clock])
 
@@ -136,8 +143,9 @@ export default function TabPlayer({ params = {} }) {
     if (scroller.current) scroller.current.scrollLeft = 0
   }, [tabId])
 
-  const beams = useMemo(() => computeBeams(tab.notes, tab.beats), [tab])
-  const barLen = tab.beats * 2
+  const keyPcs = useMemo(() => keyPcsOf(tab.sharps), [tab])
+  const beams = useMemo(() => computeBeams(tab.notes, tab.beats, res, keyPcs), [tab, res, keyPcs])
+  const barLen = tab.beats * res
   const isBar = (i) => i > 0 && timeline.starts[i] % barLen === 0
 
   function stop() {
@@ -198,26 +206,29 @@ export default function TabPlayer({ params = {} }) {
       <p className="muted">{tab.tip}</p>
 
       <div className="tab-scroll" ref={scroller}>
-        <div className="tabsheet" style={{ '--cells': timeline.total, '--cellw': hasLyrics ? '34px' : '26px' }}>
+        <div
+          className="tabsheet"
+          style={{ '--cells': timeline.total, '--cellw': res > 2 ? (hasLyrics ? '32px' : '22px') : hasLyrics ? '34px' : '26px', '--namew': (tab.sharps || 0) > 1 ? '72px' : '62px' }}
+        >
           <div className="tabsheet-row pm-row">
             <span className="tab-name" />
             {tab.notes.map((ev, i) => (
-              <span key={i} data-i={i} className={`ts-cell${i === cur ? ' now' : ''}${ev.ch ? ' chord' : ''}${isBar(i) ? ' bar' : ''}`} style={{ flexGrow: ev.d }}>{ev.ch ? label(ev.ch) : ev.fermata ? '𝄐' : ev.tech === 'pm' ? 'PM' : ''}</span>
+              <span key={i} data-i={i} className={`ts-cell${i === cur ? ' now' : ''}${ev.ch ? ' chord' : ''}${isBar(i) ? ' bar' : ''}`} style={cellStyle(ev.d)}>{ev.ch ? label(ev.ch) : ev.fermata ? '𝄐' : ev.tech === 'pm' ? 'PM' : ''}</span>
             ))}
           </div>
           {showStaff && (
             <div className="tabsheet-row staff-row" style={{ height: STAFF_HEIGHT }}>
               <span className="tab-name staff-name">
                 <TrebleClef />
-                {tab.sharps ? <span className="st-keysig" title="Armure : Fa dièse">♯</span> : null}
-                <span className="st-time">
+                <KeySignature sharps={tab.sharps} />
+                <span className="st-time" style={(tab.sharps || 0) > 1 ? { left: 52 } : undefined}>
                   <b>{tab.beats}</b>
                   <b>4</b>
                 </span>
               </span>
               {tab.notes.map((ev, i) => (
-                <span key={i} className={`ts-cell staff${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={{ flexGrow: ev.d }}>
-                  <StaffCell ev={ev} beam={beams[i]} />
+                <span key={i} className={`ts-cell staff${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={cellStyle(ev.d)}>
+                  <StaffCell ev={ev} beam={beams[i]} res={res} keyPcs={keyPcs} tieNext={!!tab.notes[i + 1]?.tie} />
                 </span>
               ))}
             </div>
@@ -226,7 +237,7 @@ export default function TabPlayer({ params = {} }) {
             <div className="tabsheet-row lyrics-row">
               <span className="tab-name" />
               {tab.notes.map((ev, i) => (
-                <span key={i} className={`ts-cell lyr${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={{ flexGrow: ev.d }}>{ev.ly || ''}</span>
+                <span key={i} className={`ts-cell lyr${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={cellStyle(ev.d)}>{ev.ly || ''}</span>
               ))}
             </div>
           )}
@@ -234,7 +245,7 @@ export default function TabPlayer({ params = {} }) {
             <div className="tabsheet-row names-row">
               <span className="tab-name" />
               {tab.notes.map((ev, i) => (
-                <span key={i} className={`ts-cell nname${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={{ flexGrow: ev.d }}>{noteNameOf(ev, note)}</span>
+                <span key={i} className={`ts-cell nname${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={cellStyle(ev.d)}>{noteNameOf(ev, note)}</span>
               ))}
             </div>
           )}
@@ -244,11 +255,11 @@ export default function TabPlayer({ params = {} }) {
               {tab.notes.map((ev, i) => {
                 const hit = ev.n.find(([s]) => s === str)
                 return (
-                  <span key={i} className={`ts-cell line${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={{ flexGrow: ev.d }}>
+                  <span key={i} className={`ts-cell line${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={cellStyle(ev.d)}>
                     {hit ? (
                       <b>
                         {ev.tech && TECH_LABEL[ev.tech] ? <i>{TECH_LABEL[ev.tech]}</i> : null}
-                        {hit[1]}
+                        {ev.tie ? `(${hit[1]})` : hit[1]}
                       </b>
                     ) : null}
                   </span>

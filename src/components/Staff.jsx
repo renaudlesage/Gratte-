@@ -18,7 +18,7 @@ export function staffStep(midi) {
 }
 const yOf = (step) => BOTTOM - (step * GAP) / 2
 
-function Note({ step, filled, stem, flag, dot, sharp, up, stemTo }) {
+function Note({ step, filled, stem, flags = 0, dot, sharp, up, stemTo }) {
   const y = yOf(step)
   const ledgers = []
   for (let s = -2; s >= step; s -= 2) ledgers.push(s)
@@ -34,77 +34,107 @@ function Note({ step, filled, stem, flag, dot, sharp, up, stemTo }) {
       {dot && <span className="st-dot" style={{ top: y - (step % 2 === 0 ? GAP / 2 : 0) }} />}
       {stem && (
         <span className={`st-stem ${up ? 'up' : 'down'}`} style={{ top, height }}>
-          {flag && <span className={`st-flag ${up ? 'up' : 'down'}`} />}
+          {flags > 0 && <span className={`st-flag ${up ? 'up' : 'down'}`} />}
+          {flags > 1 && <span className={`st-flag ${up ? 'up' : 'down'} second`} />}
         </span>
       )}
     </>
   )
 }
 
+// Durée en doubles croches (16 = ronde), quelle que soit l'unité du morceau (res = subdivisions par temps)
+export const sixteenths = (d, res = 2) => (d * 4) / res
+
 // Silences : demi-pause et pause en rectangles, soupir et demi-soupir en glyphes
-function Rest({ d }) {
-  if (d >= 8) return <span className="st-rest-block whole" style={{ top: yOf(6) }} />
-  if (d >= 4) return <span className="st-rest-block half" style={{ top: yOf(4) - 4 }} />
-  return <span className="st-rest-glyph" style={{ top: yOf(4) - 12 }}>{d >= 2 ? '𝄽' : '𝄾'}</span>
+function Rest({ q }) {
+  if (q >= 16) return <span className="st-rest-block whole" style={{ top: yOf(6) }} />
+  if (q >= 8) return <span className="st-rest-block half" style={{ top: yOf(4) - 4 }} />
+  return <span className="st-rest-glyph" style={{ top: yOf(4) - 12 }}>{q >= 4 ? '𝄽' : q >= 2 ? '𝄾' : '𝄿'}</span>
 }
 
-const notesOf = (ev) =>
+// Notes altérées : le dièse n'est pas répété quand il figure à l'armure
+const notesOf = (ev, keyPcs) =>
   ev.n.map(([s, f]) => {
     const m = writtenMidi(s, f)
-    return { m, step: staffStep(SHARP.has(m % 12) ? m - 1 : m), sharp: SHARP.has(m % 12) }
+    const isSharp = SHARP.has(m % 12)
+    return { m, step: staffStep(isSharp ? m - 1 : m), sharp: isSharp && !(keyPcs && keyPcs.has(m % 12)) }
   })
 
-// Ligatures : croches consécutives regroupées par temps (3/4) ou par demi-mesure (2/4, 4/4)
-export function computeBeams(events, beats) {
-  const groupLen = beats === 3 ? 2 : 4
+// Armure : Fa#, puis Do#, Sol#… (positions sur la portée en clé de sol)
+const KEY_SHARPS = [
+  { pc: 6, step: 8 },
+  { pc: 1, step: 5 },
+  { pc: 8, step: 9 },
+]
+export const keyPcsOf = (sharps = 0) => new Set(KEY_SHARPS.slice(0, sharps).map((k) => k.pc))
+export function KeySignature({ sharps = 0 }) {
+  return KEY_SHARPS.slice(0, sharps).map((k, i) => (
+    <span key={k.pc} className="st-keysig" style={{ left: 30 + i * 7, top: yOf(k.step) - 8 }}>♯</span>
+  ))
+}
+
+// Ligatures : croches et doubles croches consécutives, regroupées par temps (3/4, doubles croches)
+// ou par demi-mesure (croches en 2/4 et 4/4). Les doubles croches ont une 2e barre (entière ou crochet).
+export function computeBeams(events, beats, res = 2, keyPcs) {
+  const q = (k) => sixteenths(events[k].d, res)
+  const groupLen = res > 2 || beats === 3 ? 4 : 8 // en doubles croches
   const out = events.map(() => null)
   let t = 0
   const starts = events.map((ev) => {
     const s = t
-    t += ev.d
+    t += sixteenths(ev.d, res)
     return s
   })
   let i = 0
   while (i < events.length) {
-    const isEighth = (k) => events[k] && events[k].d === 1 && events[k].n.length > 0
-    if (!isEighth(i)) {
+    const isBeamable = (k) => events[k] && q(k) < 4 && events[k].n.length > 0
+    if (!isBeamable(i)) {
       i++
       continue
     }
     const win = Math.floor(starts[i] / groupLen)
     let j = i
-    while (isEighth(j + 1) && Math.floor(starts[j + 1] / groupLen) === win) j++
+    while (isBeamable(j + 1) && Math.floor(starts[j + 1] / groupLen) === win) j++
     if (j > i) {
       const group = []
-      for (let k = i; k <= j; k++) group.push(notesOf(events[k]))
+      for (let k = i; k <= j; k++) group.push(notesOf(events[k], keyPcs))
       const all = group.flat()
       const up = all.reduce((a, n) => a + n.step, 0) / all.length < 4
       const beamY = up
         ? Math.min(...group.map((g) => yOf(Math.max(...g.map((n) => n.step))))) - 26
         : Math.max(...group.map((g) => yOf(Math.min(...g.map((n) => n.step))))) + 26
-      for (let k = i; k <= j; k++) out[k] = { up, beamY, last: k === j }
+      for (let k = i; k <= j; k++) {
+        // 2e barre des doubles croches : jusqu'à la note suivante si elle est aussi double croche, sinon crochet
+        let sec = null
+        if (q(k) === 1) {
+          if (k < j && q(k + 1) === 1) sec = 'full'
+          else if (k > i && q(k - 1) === 1) sec = null // déjà relié par la précédente
+          else sec = k === j ? 'left' : 'right'
+        }
+        out[k] = { up, beamY, last: k === j, sec }
+      }
     }
     i = j + 1
   }
   return out
 }
 
-export function StaffCell({ ev, beam }) {
+export function StaffCell({ ev, beam, res = 2, keyPcs, tieNext }) {
+  const q = sixteenths(ev.d, res)
   if (!ev.n.length) {
     return (
       <span className="st-note">
-        <Rest d={ev.d} />
+        <Rest q={q} />
       </span>
     )
   }
-  const notes = notesOf(ev)
-  const d = ev.d
-  const filled = d < 4
-  const stem = d < 8
-  const dot = d === 3 || d === 6
+  const notes = notesOf(ev, keyPcs)
+  const filled = q < 8
+  const stem = q < 16
+  const dot = q === 3 || q === 6 || q === 12
   const avg = notes.reduce((s, n) => s + n.step, 0) / notes.length
   const up = beam ? beam.up : avg < 4 // sous la ligne du milieu : hampe vers le haut
-  const flag = d === 1 && !beam
+  const flags = beam ? 0 : q === 1 ? 2 : q < 4 ? 1 : 0
   // Accord : une seule hampe, attachée à la note la plus éloignée de la ligature
   const anchor = notes.reduce((a, n) => (up ? (n.step < a.step ? n : a) : n.step > a.step ? n : a), notes[0])
   const stemTo = beam ? beam.beamY : notes.length > 1 ? (up ? yOf(Math.max(...notes.map((n) => n.step))) - 28 : yOf(Math.min(...notes.map((n) => n.step))) + 28) : undefined
@@ -112,10 +142,14 @@ export function StaffCell({ ev, beam }) {
     <>
       <span className="st-note">
         {notes.map((n, k) => (
-          <Note key={k} step={n.step} filled={filled} dot={dot} sharp={n.sharp} up={up} stem={stem && n === anchor} flag={flag} stemTo={stemTo} />
+          <Note key={k} step={n.step} filled={filled} dot={dot} sharp={n.sharp} up={up} stem={stem && n === anchor} flags={flags} stemTo={stemTo} />
         ))}
       </span>
       {beam && !beam.last && <span className={`st-beam ${beam.up ? 'up' : 'down'}`} style={{ top: beam.beamY - (beam.up ? 0 : 4) }} />}
+      {beam && beam.sec && (
+        <span className={`st-beam ${beam.up ? 'up' : 'down'} sec-${beam.sec}`} style={{ top: beam.beamY + (beam.up ? 6 : -10) }} />
+      )}
+      {tieNext && <span className={`st-tie ${up ? 'below' : 'above'}`} style={{ top: up ? yOf(notes[0].step) + 4 : yOf(notes[0].step) - 10 }} />}
     </>
   )
 }

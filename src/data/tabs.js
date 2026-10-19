@@ -1,9 +1,28 @@
-// Tablatures. n : [[corde (1 = Mi aigu … 6 = Mi grave), case], …], d : durée en croches.
+// Tablatures. n : [[corde (1 = Mi aigu … 6 = Mi grave), case], …], d : durée en croches (ou en doubles croches si res: 4), tie : note liée.
 // tech : 'h' hammer-on, 'p' pull-off, '/' glissé montant, '\\' glissé descendant, 'pm' étouffé (palm mute).
 const N = (s, f, d = 1, tech) => ({ n: [[s, f]], d, tech })
 const C = (notes, d = 1, tech) => ({ n: notes, d, tech })
 const X = (s, f, d, extra) => ({ n: [[s, f]], d, ...extra }) // note avec accord (ch) ou point d'orgue
 const R = (d) => ({ n: [], d }) // silence
+
+// Mélodie écrite en notation compacte : « [accord@]hauteur/durée[/parole] », « ~hauteur/durée » = note liée,
+// « -/durée » = silence, « | » = barre de mesure. Hauteurs écrites (guitare), placées en 1re position.
+const POS = { D4: [4, 0], E4: [4, 2], 'F#4': [4, 4], G4: [3, 0], 'G#4': [3, 1], A4: [3, 2], B4: [2, 0], 'C#5': [2, 2], D5: [2, 3], E5: [1, 0], 'F#5': [1, 2] }
+function melody(src) {
+  return src.trim().split(/\s+/).filter((t) => t !== '|').map((tok) => {
+    let ch
+    if (tok.includes('@')) [ch, tok] = tok.split('@')
+    const tie = tok.startsWith('~')
+    const [p, d, ly] = tok.replace('~', '').split('/')
+    if (p === '-') return R(Number(d))
+    if (!POS[p]) throw new Error('Hauteur inconnue : ' + p)
+    const ev = { n: [POS[p]], d: Number(d) }
+    if (ch) ev.ch = ch
+    if (ly) ev.ly = ly
+    if (tie) ev.tie = true
+    return ev
+  })
+}
 
 const spider = []
 for (let s = 6; s >= 1; s--) for (let f = 1; f <= 4; f++) spider.push(N(s, f))
@@ -199,6 +218,42 @@ export const TABS = [
       X(1, 0, 2, { ch: 'C' }), N(2, 1, 2), X(2, 3, 2, { ch: 'G7' }),
       X(2, 1, 6, { ch: 'C' }),
     ],
+  },
+  {
+    id: 'tchant-walons',
+    sharps: 2, // armure : Ré majeur (Fa#, Do#)
+    res: 4, // durées en doubles croches (rythme pointé)
+    title: 'Li tchant dès Walons',
+    kind: 'cours',
+    by: 'Théophile Bovy (paroles) · Louis Hillier (musique), © 1902 · hymne de la Wallonie',
+    level: 3,
+    bpm: 84,
+    beats: 4,
+    tip: 'Allegro marciale, en Ré majeur (Fa♯ et Do♯). Tout le chant repose sur le rythme pointé de la marche : croche pointée + double croche, long-court (« taaa-ta »). Première position : Fa♯ grave corde 4 case 4 (auriculaire), Do♯ corde 2 case 2, Ré corde 2 case 3, Fa♯ aigu corde 1 case 2, et un seul Sol♯ (corde 3, case 1). Les notes liées ne se rejouent pas. Paroles du 1er couplet ; cochez « Accords » pour l’accompagnement.',
+    notes: melody(`
+      D@F#4/4/Nos F#4/3/ès- F#4/1/tans A4/3/fîrs A4/1/di A4/3/nosse A4/1/pi- |
+      D5/3/tite D5/1/pa- A4/4/trè- A4/3/ye F#4/1/Ca G4/3/lådje A4/1/èt |
+      G@B4/4/long ~B4/3 C#5/1/on D5/4/djåse B4/4/di |
+      A@C#5/3/sès D5/1/è- E5/8/fants; -/4 |
+      D@F#4/4/Å F#4/3/pru- F#4/1/mî A4/3/rang A4/1/on A4/3/l'mèt' A4/1/po |
+      D5/3/l'in- D5/1/dus- A4/4/trè- A4/3/ye F#4/1/Et G4/3/d'vins A4/1/lès |
+      G@B4/3/årts G4/1/èle A@A4/3/ri- B4/1/gla- C#5/4/tih' ~C#5/3 D5/1/ot' |
+      D@D5/12/tant. -/4 |
+      D@A4/4/Nosse B4/3/tére C#5/1/èst D5/3/p'tite, F#4/1/mins E@G#4/3/nos A4/1/a- |
+      A@B4/3/vans E4/1/l'ri- C#5/4/tchè- C#5/3/sse A4/1/Dès B4/3/o- C#5/1/mes |
+      E7@E5/4/sin- E5/3/cieûs D5/1/qu'a- C#5/3/nô- B4/1/bli- A4/3/hèt B4/1/leû |
+      A@C#5/16/nom; |
+      D@D5/4/Et D5/3/nos D5/1/a- A4/3/vans A4/1/dès A4/3/lî- A4/1/bèr- |
+      G@B4/3/tés B4/1/tim- D@F#4/4/pè- F#4/3/sse: D4/1/Vo- E4/3/la F#4/1/po- |
+      A7@A4/4/qwè G4/3/qu'on F#4/1/z'est E4/4/fîr F#4/3/d'èsse G4/1/Wa- |
+      D@F#4/16/lon! |
+      D@D5/4/Et D5/3/nos D5/1/a- F#5/3/vans E5/1/dès D5/3/lî- C#5/1/bèr- |
+      G@B4/3/tés D5/1/tim- D@D5/4/pè- D5/3/sse: F#4/1/Vo- A7@G4/3/la A4/1/po- |
+      G@G4/8/qwè; B4/3 G4/1/Vo- A4/3/la B4/1/po- |
+      A@C#5/12/qwè B4/3/qu'on B4/1/z'est |
+      A@E5/8/fîr A7@E5/4/d'èsse D5/3 F#5/1/Wa- |
+      D@D5/12/lon! -/4
+    `),
   },
   {
     id: 'vive-le-vent',

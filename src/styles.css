@@ -586,3 +586,19 @@ input[type="time"].small-input { width: 120px; }
 .staff-name { position: sticky; }
 .staff-name .st-time { position: absolute; left: 42px; top: 0; margin: 36px 0 0; }
 .ts-cell.lyr { padding-right: 6px; }
+/* Doubles croches, liaisons, armure à plusieurs dièses */
+.tabsheet-row .tab-name, .tabsheet-row .tab-name.staff-name { width: var(--namew, 62px); }
+.st-flag.up.second { top: 6px; }
+.st-flag.down.second { bottom: 6px; }
+.st-beam.sec-left { width: 8px; }
+.st-beam.up.sec-left { left: calc(8px + 9.2px - 8px); }
+.st-beam.down.sec-left { left: 0; }
+.st-beam.sec-right { width: 8px; }
+.st-tie { position: absolute; z-index: 2; left: 18px; width: calc(100% - 12px); height: 6px; border: 1.4px solid var(--text); box-sizing: border-box; }
+.st-tie.below { border-top: none; border-radius: 0 0 50% 50% / 0 0 100% 100%; }
+.st-tie.above { border-bottom: none; border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
+/* Cases de même largeur sur toutes les lignes (le rembourrage ne doit pas fausser le partage) et contenu calé à gauche,
+   au niveau de la tête de note de la portée */
+.ts-cell { box-sizing: border-box; }
+.ts-cell.line { justify-items: start; padding-left: 3px; }
+.tabsheet { min-width: max(100%, calc(var(--cells, 16) * var(--cellw, 26px) + var(--namew, 62px) + 22px)); }
