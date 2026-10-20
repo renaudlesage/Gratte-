@@ -10,11 +10,16 @@ import { StaffCell, TrebleClef, KeySignature, keyPcsOf, noteNameOf, computeBeams
 const VIEW_KEY = 'gratte.tabview'
 const readView = () => {
   try {
-    return JSON.parse(localStorage.getItem(VIEW_KEY)) || { view: 'both', names: false }
+    return { view: 'both', names: false, zoom: null, ...JSON.parse(localStorage.getItem(VIEW_KEY)) }
   } catch {
-    return { view: 'both', names: false }
+    return { view: 'both', names: false, zoom: null }
   }
 }
+
+// Tailles d'affichage de la partition (zoom), et taille automatique selon la largeur disponible
+const ZOOMS = [0.85, 1, 1.15, 1.3, 1.5, 1.75, 2, 2.4]
+const autoZoom = (w, stage) => (w >= 1100 ? 1.5 : w >= 760 ? 1.3 : 1) + (stage && w >= 760 ? 0.25 : 0)
+const nearestZoom = (z) => ZOOMS.reduce((a, b) => (Math.abs(b - z) < Math.abs(a - z) ? b : a))
 
 const TECH_LABEL = { h: 'h', p: 'p', '/': '/', '\\': '\\' }
 
@@ -69,6 +74,48 @@ export default function TabPlayer({ params = {} }) {
   const { markPracticed, logActivity } = useProgress()
   const startedAt = useRef(0)
   const scroller = useRef(null)
+  const lineRefs = useRef([])
+  const [stage, setStage] = useState(false) // mode pupitre : partition plein écran
+  const [boxW, setBoxW] = useState(0)
+
+  // Largeur disponible pour la partition (fenêtre DeX redimensionnable, rotation de la tablette…)
+  useEffect(() => {
+    const el = scroller.current
+    if (!el) return undefined
+    const measure = () => setBoxW(el.clientWidth)
+    measure()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure)
+      return () => window.removeEventListener('resize', measure)
+    }
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [stage])
+
+  // Mode pupitre : plein écran si possible, Échap pour sortir, page figée derrière
+  useEffect(() => {
+    if (!stage) return undefined
+    const onKey = (e) => {
+      if (e.key === 'Escape') setStage(false)
+      if (e.key === ' ' && e.target === document.body) {
+        e.preventDefault()
+        toggleRef.current()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+    }
+  }, [stage])
+  const enterStage = () => {
+    setStage(true)
+    document.documentElement.requestFullscreen?.().catch(() => {})
+  }
 
   useEffect(() => {
     if (params.tab) setTabId(params.tab)
@@ -130,23 +177,47 @@ export default function TabPlayer({ params = {} }) {
 
   useEffect(() => () => clock.stop(), [clock])
 
-  // Suit le curseur : la case jouée reste visible sur les morceaux longs
-  useEffect(() => {
-    const box = scroller.current
-    if (!box || cur < 0) return
-    const cell = box.querySelector(`[data-i="${cur}"]`)
-    if (!cell) return
-    const left = cell.offsetLeft - box.clientWidth / 3
-    if (Math.abs(box.scrollLeft - left) > box.clientWidth / 4) box.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
-  }, [cur])
-  useEffect(() => {
-    if (scroller.current) scroller.current.scrollLeft = 0
-  }, [tabId])
 
   const keyPcs = useMemo(() => keyPcsOf(tab.sharps), [tab])
   const beams = useMemo(() => computeBeams(tab.notes, tab.beats, res, keyPcs), [tab, res, keyPcs])
   const barLen = tab.beats * res
   const isBar = (i) => i > 0 && timeline.starts[i] % barLen === 0
+
+  // Mise en page en lignes, comme une partition imprimée : autant de mesures par ligne que la largeur le permet
+  const zoom = display.zoom || nearestZoom(autoZoom(boxW, stage))
+  const baseCell = res > 2 ? (hasLyrics ? 32 : 22) : hasLyrics ? 34 : 26
+  const nameW = (tab.sharps || 0) > 1 ? 72 : 62
+  const layout = useMemo(() => {
+    const bars = []
+    tab.notes.forEach((ev, i) => {
+      if (i === 0 || timeline.starts[i] % barLen === 0) bars.push({ a: i, b: i + 1, units: 0 })
+      else bars[bars.length - 1].b = i + 1
+      bars[bars.length - 1].units += ev.d
+    })
+    const inner = boxW ? boxW / zoom - nameW - 24 : 0
+    const fit = inner ? Math.max(1, Math.min(8, Math.floor(inner / (barLen * baseCell)))) : bars.length
+    const nLines = Math.ceil(bars.length / fit)
+    const per = Math.ceil(bars.length / nLines) // lignes équilibrées
+    // Écran étroit (téléphone) : on resserre jusqu'à 22 px par unité ; au-delà, la ligne défile horizontalement
+    const minCell = inner && inner < barLen * baseCell ? Math.max(22, Math.floor(inner / barLen)) : baseCell
+    const unit = inner ? Math.max(minCell, Math.floor((inner / (per * barLen)) * 10) / 10) : baseCell
+    const lines = []
+    for (let k = 0; k < bars.length; k += per) {
+      const chunk = bars.slice(k, k + per)
+      lines.push({ a: chunk[0].a, b: chunk[chunk.length - 1].b, units: chunk.reduce((n, x) => n + x.units, 0) })
+    }
+    return { lines, unit }
+  }, [tab, timeline, barLen, boxW, zoom, baseCell, nameW])
+
+  // Suit le curseur : la ligne jouée reste visible (défilement vertical, utile sur pupitre)
+  const curLine = cur < 0 ? -1 : layout.lines.findIndex((l) => cur >= l.a && cur < l.b)
+  useEffect(() => {
+    const el = lineRefs.current[curLine]
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const box = stage ? scroller.current.closest('.tabplayer').getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
+    if (r.top < box.top + 8 || r.bottom > box.bottom - 8) el.scrollIntoView({ block: curLine === 0 ? 'center' : 'start', behavior: 'smooth' })
+  }, [curLine, stage])
 
   function stop() {
     clock.stop()
@@ -164,6 +235,12 @@ export default function TabPlayer({ params = {} }) {
       markPracticed()
     }
   }
+  const toggleRef = useRef(toggle)
+  toggleRef.current = toggle
+  const zoomBy = (dir) => {
+    const i = ZOOMS.indexOf(zoom)
+    setView({ zoom: ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, i + dir))] })
+  }
 
   const choose = (id) => {
     if (clock.running) stop()
@@ -179,129 +256,187 @@ export default function TabPlayer({ params = {} }) {
     ['mélodie', 'Mélodies'],
   ]
 
-  return (
-    <div className="tabplayer">
-      {groups.map(([k, name]) => (
-        <div key={k}>
-          <span className="chip-group-label">{name}</span>
-          <div className="chips">
-            {TABS.filter((t) => t.kind === k).map((t) => (
-              <button key={t.id} className={`chip${t.id === tabId ? ' on' : ''}`} onClick={() => choose(t.id)}>{t.title}</button>
-            ))}
-          </div>
+  // Une ligne de partition : les notes a … b-1 (index globaux conservés pour le curseur et les ligatures)
+  const renderLine = (line, k) => {
+    const idx = []
+    for (let i = line.a; i < line.b; i++) idx.push(i)
+    const bar = (i) => i !== line.a && isBar(i)
+    const cls = (i, extra) => `ts-cell ${extra}${i === cur ? ' now' : ''}${bar(i) ? ' bar' : ''}`
+    return (
+      <div
+        key={line.a}
+        ref={(el) => (lineRefs.current[k] = el)}
+        className={`tabsheet line-sheet${k === curLine ? ' playing' : ''}`}
+        style={{ zoom, '--cells': line.units, '--cellw': `${layout.unit}px`, '--namew': `${nameW}px` }}
+      >
+        <div className="tabsheet-row pm-row">
+          <span className="tab-name line-no">{k > 0 ? Math.round(timeline.starts[line.a] / barLen) + 1 : ''}</span>
+          {idx.map((i) => {
+            const ev = tab.notes[i]
+            return (
+              <span key={i} data-i={i} className={cls(i, ev.ch ? 'chord' : '')} style={cellStyle(ev.d)}>
+                {ev.ch ? label(ev.ch) : ''}{ev.fermata ? (ev.ch ? ' 𝄐' : '𝄐') : ''}{!ev.ch && !ev.fermata && ev.tech === 'pm' ? 'PM' : ''}
+              </span>
+            )
+          })}
         </div>
-      ))}
-      {tab.by && <p className="small muted">{tab.by}</p>}
-      <div className="row wrap gap view-switch">
-        <div className="segmented" role="radiogroup" aria-label="Affichage">
-          {[['tab', 'Tablature'], ['staff', 'Partition'], ['both', 'Les deux']].map(([id, name]) => (
-            <button key={id} role="radio" aria-checked={display.view === id} className={display.view === id ? 'on' : ''} onClick={() => setView({ view: id })}>{name}</button>
-          ))}
-        </div>
-        <label className="field-inline">
-          <input id="tab-names" type="checkbox" checked={display.names} onChange={(e) => setView({ names: e.target.checked })} />
-          Nom des notes
-        </label>
-      </div>
-      <p className="muted">{tab.tip}</p>
-
-      <div className="tab-scroll" ref={scroller}>
-        <div
-          className="tabsheet"
-          style={{ '--cells': timeline.total, '--cellw': res > 2 ? (hasLyrics ? '32px' : '22px') : hasLyrics ? '34px' : '26px', '--namew': (tab.sharps || 0) > 1 ? '72px' : '62px' }}
-        >
-          <div className="tabsheet-row pm-row">
-            <span className="tab-name" />
-            {tab.notes.map((ev, i) => (
-              <span key={i} data-i={i} className={`ts-cell${i === cur ? ' now' : ''}${ev.ch ? ' chord' : ''}${isBar(i) ? ' bar' : ''}`} style={cellStyle(ev.d)}>{ev.ch ? label(ev.ch) : ''}{ev.fermata ? (ev.ch ? ' 𝄐' : '𝄐') : ''}{!ev.ch && !ev.fermata && ev.tech === 'pm' ? 'PM' : ''}</span>
-            ))}
-          </div>
-          {showStaff && (
-            <div className="tabsheet-row staff-row" style={{ height: STAFF_HEIGHT }}>
-              <span className="tab-name staff-name">
-                <TrebleClef />
-                <KeySignature sharps={tab.sharps} />
+        {showStaff && (
+          <div className="tabsheet-row staff-row" style={{ height: STAFF_HEIGHT }}>
+            <span className="tab-name staff-name">
+              <TrebleClef />
+              <KeySignature sharps={tab.sharps} />
+              {k === 0 && (
                 <span className="st-time" style={(tab.sharps || 0) > 1 ? { left: 52 } : undefined}>
                   <b>{tab.beats}</b>
                   <b>4</b>
                 </span>
+              )}
+            </span>
+            {idx.map((i) => (
+              <span key={i} className={cls(i, 'staff')} style={cellStyle(tab.notes[i].d)}>
+                <StaffCell ev={tab.notes[i]} beam={beams[i]} res={res} keyPcs={keyPcs} tieNext={!!tab.notes[i + 1]?.tie} />
               </span>
-              {tab.notes.map((ev, i) => (
-                <span key={i} className={`ts-cell staff${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={cellStyle(ev.d)}>
-                  <StaffCell ev={ev} beam={beams[i]} res={res} keyPcs={keyPcs} tieNext={!!tab.notes[i + 1]?.tie} />
+            ))}
+          </div>
+        )}
+        {hasLyrics && (
+          <div className="tabsheet-row lyrics-row">
+            <span className="tab-name" />
+            {idx.map((i) => (
+              <span key={i} className={cls(i, 'lyr')} style={cellStyle(tab.notes[i].d)}>{tab.notes[i].ly || ''}</span>
+            ))}
+          </div>
+        )}
+        {display.names && (
+          <div className="tabsheet-row names-row">
+            <span className="tab-name" />
+            {idx.map((i) => (
+              <span key={i} className={cls(i, 'nname')} style={cellStyle(tab.notes[i].d)}>{noteNameOf(tab.notes[i], note)}</span>
+            ))}
+          </div>
+        )}
+        {showTab && [1, 2, 3, 4, 5, 6].map((str) => (
+          <div key={str} className="tabsheet-row">
+            <span className="tab-name">{['e', 'B', 'G', 'D', 'A', 'E'][str - 1]}</span>
+            {idx.map((i) => {
+              const ev = tab.notes[i]
+              const hit = ev.n.find(([st]) => st === str)
+              return (
+                <span key={i} className={cls(i, 'line')} style={cellStyle(ev.d)}>
+                  {hit ? (
+                    <b>
+                      {ev.tech && TECH_LABEL[ev.tech] ? <i>{TECH_LABEL[ev.tech]}</i> : null}
+                      {ev.tie ? `(${hit[1]})` : hit[1]}
+                    </b>
+                  ) : null}
                 </span>
-              ))}
-            </div>
-          )}
-          {hasLyrics && (
-            <div className="tabsheet-row lyrics-row">
-              <span className="tab-name" />
-              {tab.notes.map((ev, i) => (
-                <span key={i} className={`ts-cell lyr${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={cellStyle(ev.d)}>{ev.ly || ''}</span>
-              ))}
-            </div>
-          )}
-          {display.names && (
-            <div className="tabsheet-row names-row">
-              <span className="tab-name" />
-              {tab.notes.map((ev, i) => (
-                <span key={i} className={`ts-cell nname${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={cellStyle(ev.d)}>{noteNameOf(ev, note)}</span>
-              ))}
-            </div>
-          )}
-          {showTab && [1, 2, 3, 4, 5, 6].map((str) => (
-            <div key={str} className="tabsheet-row">
-              <span className="tab-name">{['e', 'B', 'G', 'D', 'A', 'E'][str - 1]}</span>
-              {tab.notes.map((ev, i) => {
-                const hit = ev.n.find(([s]) => s === str)
-                return (
-                  <span key={i} className={`ts-cell line${i === cur ? ' now' : ''}${isBar(i) ? ' bar' : ''}`} style={cellStyle(ev.d)}>
-                    {hit ? (
-                      <b>
-                        {ev.tech && TECH_LABEL[ev.tech] ? <i>{TECH_LABEL[ev.tech]}</i> : null}
-                        {ev.tie ? `(${hit[1]})` : hit[1]}
-                      </b>
-                    ) : null}
-                  </span>
-                )
-              })}
+              )
+            })}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const viewSwitch = (
+    <div className="segmented" role="radiogroup" aria-label="Affichage">
+      {[['tab', 'Tablature'], ['staff', 'Partition'], ['both', 'Les deux']].map(([id, name]) => (
+        <button key={id} role="radio" aria-checked={display.view === id} className={display.view === id ? 'on' : ''} onClick={() => setView({ view: id })}>{name}</button>
+      ))}
+    </div>
+  )
+  const sizeControl = (
+    <div className="size-ctl" role="group" aria-label="Taille de la partition">
+      <button className="btn btn-round small" onClick={() => zoomBy(-1)} disabled={zoom <= ZOOMS[0]} aria-label="Plus petit">A−</button>
+      <span className="size-val">{Math.round(zoom * 100)} %</span>
+      <button className="btn btn-round small" onClick={() => zoomBy(1)} disabled={zoom >= ZOOMS[ZOOMS.length - 1]} aria-label="Plus grand">A+</button>
+      {display.zoom && <button className="btn btn-ghost small" onClick={() => setView({ zoom: null })}>Auto</button>}
+    </div>
+  )
+  const clampBpm = (v) => Math.max(30, Math.min(180, v))
+
+  return (
+    <div className={`tabplayer${stage ? ' stage' : ''}`}>
+      {stage ? (
+        <div className="stage-bar">
+          <button className="btn btn-ghost small" onClick={() => setStage(false)} aria-label="Quitter le mode pupitre">✕</button>
+          <strong className="stage-title">{tab.title}</strong>
+          <div className="stage-bpm">
+            <button className="btn btn-round small" onClick={() => setBpm(clampBpm(bpm - 5))} aria-label="Moins 5 BPM">−</button>
+            <span><b>{bpm}</b> BPM</span>
+            <button className="btn btn-round small" onClick={() => setBpm(clampBpm(bpm + 5))} aria-label="Plus 5 BPM">+</button>
+          </div>
+          {viewSwitch}
+          {sizeControl}
+          <button className={`btn ${running ? '' : 'btn-primary'} stage-play`} onClick={toggle}>{running ? '■ Stop' : '▶ Lire'}</button>
+        </div>
+      ) : (
+        <>
+          {groups.map(([k, name]) => (
+            <div key={k}>
+              <span className="chip-group-label">{name}</span>
+              <div className="chips">
+                {TABS.filter((t) => t.kind === k).map((t) => (
+                  <button key={t.id} className={`chip${t.id === tabId ? ' on' : ''}`} onClick={() => choose(t.id)}>{t.title}</button>
+                ))}
+              </div>
             </div>
           ))}
-        </div>
-      </div>
-      <p className="muted small center">
-        {showTab ? 'Tablature : la ligne du bas est la corde grave (Mi), le chiffre est la case (0 = à vide). ' : ''}
-        {showStaff ? 'Partition : notes écrites comme pour la guitare (une octave au-dessus du son réel).' : ''}
-      </p>
-
-      <BpmControl bpm={bpm} setBpm={setBpm} min={30} max={180} tap={false} />
-      <div className="row center gap">
-        <label className="field-inline">
-          <input id="tab-loop" type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} />
-          En boucle
-        </label>
-        {hasChords && (
-          <label className="field-inline">
-            <input id="tab-chords" type="checkbox" checked={chords} onChange={(e) => setChords(e.target.checked)} />
-            Accords
-          </label>
-        )}
-      </div>
-      {partner && (
-        <div className="duo-box">
-          <strong>Duo</strong>
-          <label className="field-inline">
-            <input id="tab-mine" type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
-            Entendre ma voix
-          </label>
-          <label className="field-inline">
-            <input id="tab-other" type="checkbox" checked={other} onChange={(e) => setOther(e.target.checked)} />
-            Entendre l’autre voix ({partner.title.replace(/^.*\(|\)$/g, '')})
-          </label>
-          <button className="btn btn-ghost small" onClick={() => choose(partner.id)}>Voir l’autre voix</button>
-        </div>
+          {tab.by && <p className="small muted">{tab.by}</p>}
+          <div className="row wrap gap view-switch">
+            {viewSwitch}
+            <label className="field-inline">
+              <input id="tab-names" type="checkbox" checked={display.names} onChange={(e) => setView({ names: e.target.checked })} />
+              Nom des notes
+            </label>
+            {sizeControl}
+            <button className="btn small" onClick={enterStage}>⛶ Mode pupitre</button>
+          </div>
+          <p className="muted">{tab.tip}</p>
+        </>
       )}
-      <button className={`btn btn-big ${running ? '' : 'btn-primary'}`} onClick={toggle}>{running ? '■ Stop' : '▶ Lire la tablature'}</button>
+
+      <div className="sheet-lines" ref={scroller}>
+        {layout.lines.map(renderLine)}
+      </div>
+
+      {!stage && (
+        <>
+          <p className="muted small center">
+            {showTab ? 'Tablature : la ligne du bas est la corde grave (Mi), le chiffre est la case (0 = à vide). ' : ''}
+            {showStaff ? 'Partition : notes écrites comme pour la guitare (une octave au-dessus du son réel).' : ''}
+          </p>
+
+          <BpmControl bpm={bpm} setBpm={setBpm} min={30} max={180} tap={false} />
+          <div className="row center gap">
+            <label className="field-inline">
+              <input id="tab-loop" type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} />
+              En boucle
+            </label>
+            {hasChords && (
+              <label className="field-inline">
+                <input id="tab-chords" type="checkbox" checked={chords} onChange={(e) => setChords(e.target.checked)} />
+                Accords
+              </label>
+            )}
+          </div>
+          {partner && (
+            <div className="duo-box">
+              <strong>Duo</strong>
+              <label className="field-inline">
+                <input id="tab-mine" type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
+                Entendre ma voix
+              </label>
+              <label className="field-inline">
+                <input id="tab-other" type="checkbox" checked={other} onChange={(e) => setOther(e.target.checked)} />
+                Entendre l’autre voix ({partner.title.replace(/^.*\(|\)$/g, '')})
+              </label>
+              <button className="btn btn-ghost small" onClick={() => choose(partner.id)}>Voir l’autre voix</button>
+            </div>
+          )}
+          <button className={`btn btn-big ${running ? '' : 'btn-primary'}`} onClick={toggle}>{running ? '■ Stop' : '▶ Lire la tablature'}</button>
+        </>
+      )}
     </div>
   )
 }
