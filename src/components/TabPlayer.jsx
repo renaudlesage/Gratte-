@@ -5,6 +5,7 @@ import { resolveChord } from '../lib/music.js'
 import { useSettings } from '../lib/settings.jsx'
 import { useVoiceCommands, voiceSupported, VOICE_HELP } from '../lib/voice.js'
 import { readUnlocked, tryUnlock, lock, isLocked } from '../lib/locks.js'
+import ScanFolder from './ScanFolder.jsx'
 import { useProgress } from '../lib/progress.jsx'
 import BpmControl from './BpmControl.jsx'
 import { StaffCell, TrebleClef, KeySignature, keyPcsOf, noteNameOf, computeBeams, STAFF_HEIGHT } from './Staff.jsx'
@@ -508,6 +509,7 @@ export default function TabPlayer({ params = {} }) {
                     }} title="Refermer le dossier">🔒 Verrouiller</button>
                   )}
                 </div>
+                {k === 'arquebusiers' && <ScanFolder folder="arquebusiers" />}
               </div>
             ),
           )}
