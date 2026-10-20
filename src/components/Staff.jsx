@@ -100,9 +100,23 @@ export function computeBeams(events, beats, res = 2, keyPcs) {
       for (let k = i; k <= j; k++) group.push(notesOf(events[k], keyPcs))
       const all = group.flat()
       const up = all.reduce((a, n) => a + n.step, 0) / all.length < 4
-      const beamY = up
-        ? Math.min(...group.map((g) => yOf(Math.max(...g.map((n) => n.step))))) - 26
-        : Math.max(...group.map((g) => yOf(Math.min(...g.map((n) => n.step))))) + 26
+      // Ligature inclinée comme en gravure : elle suit la direction de la 1re à la dernière note
+      // (pente de la moitié de l'intervalle, au plus un interligne), puis se décale pour qu'aucune hampe
+      // ne soit trop courte. Les notes extrêmes au milieu du groupe donnent une ligature à plat.
+      const yN = group.map((g) => (up ? yOf(Math.max(...g.map((n) => n.step))) : yOf(Math.min(...g.map((n) => n.step)))))
+      const span = starts[j] - starts[i]
+      const inner = yN.slice(1, -1)
+      const first = yN[0]
+      const lastY = yN[yN.length - 1]
+      const between = (y) => (first <= lastY ? y >= first && y <= lastY : y <= first && y >= lastY)
+      const flat = inner.some((y) => !between(y) && (up ? y < Math.min(first, lastY) : y > Math.max(first, lastY)))
+      const rise = flat ? 0 : Math.max(-1.25 * GAP, Math.min(1.25 * GAP, (lastY - first) / 2))
+      const base = (k) => (span ? (rise * (starts[k] - starts[i])) / span : 0)
+      const MIN_STEM = 24
+      const C = up
+        ? Math.min(...yN.map((y, n) => y - MIN_STEM - base(i + n)))
+        : Math.max(...yN.map((y, n) => y + MIN_STEM - base(i + n)))
+      const beamAt = (k) => C + base(k)
       for (let k = i; k <= j; k++) {
         // 2e barre des doubles croches : jusqu'à la note suivante si elle est aussi double croche, sinon crochet
         let sec = null
@@ -111,12 +125,25 @@ export function computeBeams(events, beats, res = 2, keyPcs) {
           else if (k > i && q(k - 1) === 1) sec = null // déjà relié par la précédente
           else sec = k === j ? 'left' : 'right'
         }
-        out[k] = { up, beamY, last: k === j, sec }
+        out[k] = { up, beamY: beamAt(k), nextY: k < j ? beamAt(k + 1) : beamAt(k), last: k === j, sec }
       }
     }
     i = j + 1
   }
   return out
+}
+
+// Segment de ligature entre la hampe de cette note et celle de la suivante (case suivante, même décalage) :
+// un SVG étiré sur la largeur de la case, sans déformer l'épaisseur verticale.
+function BeamSegment({ up, y1, y2, offset = 0 }) {
+  const t = up ? 0 : -4 // la barre s'appuie sous le haut des hampes montantes, au-dessus du bas des hampes descendantes
+  const a = y1 + t + offset
+  const b = y2 + t + offset
+  return (
+    <svg className={`st-beam-svg ${up ? 'up' : 'down'}`} viewBox={`0 0 100 ${STAFF_HEIGHT}`} preserveAspectRatio="none" height={STAFF_HEIGHT} aria-hidden="true">
+      <polygon points={`0,${a} 100,${b} 100,${b + 4} 0,${a + 4}`} />
+    </svg>
+  )
 }
 
 export function StaffCell({ ev, beam, res = 2, keyPcs, tieNext }) {
@@ -145,8 +172,9 @@ export function StaffCell({ ev, beam, res = 2, keyPcs, tieNext }) {
           <Note key={k} step={n.step} filled={filled} dot={dot} sharp={n.sharp} up={up} stem={stem && n === anchor} flags={flags} stemTo={stemTo} />
         ))}
       </span>
-      {beam && !beam.last && <span className={`st-beam ${beam.up ? 'up' : 'down'}`} style={{ top: beam.beamY - (beam.up ? 0 : 4) }} />}
-      {beam && beam.sec && (
+      {beam && !beam.last && <BeamSegment up={beam.up} y1={beam.beamY} y2={beam.nextY} />}
+      {beam && beam.sec === 'full' && <BeamSegment up={beam.up} y1={beam.beamY} y2={beam.nextY} offset={beam.up ? 6 : -6} />}
+      {beam && (beam.sec === 'left' || beam.sec === 'right') && (
         <span className={`st-beam ${beam.up ? 'up' : 'down'} sec-${beam.sec}`} style={{ top: beam.beamY + (beam.up ? 6 : -10) }} />
       )}
       {tieNext && <span className={`st-tie ${up ? 'below' : 'above'}`} style={{ top: up ? yOf(notes[0].step) + 4 : yOf(notes[0].step) - 10 }} />}
