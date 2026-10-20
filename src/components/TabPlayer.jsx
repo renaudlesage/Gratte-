@@ -3,6 +3,7 @@ import { TABS } from '../data/tabs.js'
 import { Clock, pluck, strum, midiToFreq, OPEN_MIDI } from '../lib/audio.js'
 import { resolveChord } from '../lib/music.js'
 import { useSettings } from '../lib/settings.jsx'
+import { useVoiceCommands, voiceSupported, VOICE_HELP } from '../lib/voice.js'
 import { useProgress } from '../lib/progress.jsx'
 import BpmControl from './BpmControl.jsx'
 import { StaffCell, TrebleClef, KeySignature, keyPcsOf, noteNameOf, computeBeams, STAFF_HEIGHT } from './Staff.jsx'
@@ -130,6 +131,8 @@ export default function TabPlayer({ params = {} }) {
   ref.current = { tab, timeline, loop, mine, other, chords, partner, partnerTl }
   // L'horloge avance d'une subdivision du morceau à chaque pas
 
+  const offsetRef = useRef(0) // position de départ (en subdivisions) : « mesure 5 », « reprends »…
+  const posRef = useRef(0) // dernière position jouée
   const clockRef = useRef(null)
   if (!clockRef.current) {
     clockRef.current = new Clock({
@@ -137,9 +140,10 @@ export default function TabPlayer({ params = {} }) {
       onSchedule: (e) => {
         const r = ref.current
         const tl = r.timeline
-        const pass = Math.floor(e.tick / tl.total)
+        const at = e.tick + offsetRef.current
+        const pass = Math.floor(at / tl.total)
         if (!r.loop && pass > 0) return
-        const pos = e.tick % tl.total
+        const pos = at % tl.total
         const i = tl.starts.indexOf(pos)
         if (i >= 0) {
           const ev = r.tab.notes[i]
@@ -151,17 +155,20 @@ export default function TabPlayer({ params = {} }) {
         }
         // Duo : l'autre voix joue en même temps, un peu plus doucement
         if (r.other && r.partner && r.partnerTl) {
-          const j = r.partnerTl.starts.indexOf(e.tick % r.partnerTl.total)
+          const j = r.partnerTl.starts.indexOf(at % r.partnerTl.total)
           if (j >= 0) playEvent(r.partner.notes[j], e.time, 0.65)
         }
       },
       onTick: (e) => {
         const { timeline: tl, loop: lp } = ref.current
-        if (!lp && e.tick >= tl.total) {
+        const at = e.tick + offsetRef.current
+        if (!lp && at >= tl.total) {
           stop()
+          posRef.current = 0
           return
         }
-        const pos = e.tick % tl.total
+        const pos = at % tl.total
+        posRef.current = pos
         let idx = -1
         tl.starts.forEach((s, k) => {
           if (s <= pos) idx = k
@@ -226,21 +233,100 @@ export default function TabPlayer({ params = {} }) {
     if (Date.now() - startedAt.current > 20000) logActivity('tab', ref.current.tab.id, clock.bpm)
   }
 
+  // Lance la lecture à partir d'une position (en subdivisions du temps)
+  const playFrom = (pos = 0) => {
+    if (clock.running) clock.stop()
+    offsetRef.current = Math.max(0, Math.min(pos, timeline.total - 1))
+    posRef.current = offsetRef.current
+    clock.start()
+    if (!running) startedAt.current = Date.now()
+    setRunning(true)
+    markPracticed()
+  }
   const toggle = () => {
     if (clock.running) stop()
-    else {
-      clock.start()
-      startedAt.current = Date.now()
-      setRunning(true)
-      markPracticed()
+    else playFrom(0)
+  }
+  const barStart = (pos) => Math.floor(pos / barLen) * barLen
+
+  // Commandes vocales
+  const [voiceOn, setVoiceOn] = useState(false)
+  const [voiceMsg, setVoiceMsg] = useState('')
+  const [voiceHelp, setVoiceHelp] = useState(false)
+  const voiceAct = useRef(null)
+  voiceAct.current = (cmd) => {
+    const nBars = Math.ceil(timeline.total / barLen)
+    const say = (m) => setVoiceMsg(m)
+    switch (cmd.type) {
+      case 'stop':
+        if (clock.running) stop()
+        return say('Stop')
+      case 'play':
+        if (!clock.running) playFrom(0)
+        return say('Lecture')
+      case 'restart':
+        playFrom(0)
+        return say('Depuis le début')
+      case 'resume':
+        playFrom(barStart(posRef.current))
+        return say(`Reprise mesure ${Math.floor(posRef.current / barLen) + 1}`)
+      case 'bar': {
+        const n = Math.max(1, Math.min(nBars, cmd.n))
+        playFrom((n - 1) * barLen)
+        return say(`Mesure ${n}`)
+      }
+      case 'bar-again':
+        playFrom(barStart(posRef.current))
+        return say(`Encore la mesure ${Math.floor(posRef.current / barLen) + 1}`)
+      case 'faster':
+        setBpm((b) => Math.min(180, b + cmd.step))
+        return say(`Plus vite (+${cmd.step})`)
+      case 'slower':
+        setBpm((b) => Math.max(30, b - cmd.step))
+        return say(`Moins vite (−${cmd.step})`)
+      case 'bpm':
+        setBpm(Math.max(30, Math.min(180, cmd.n)))
+        return say(`Tempo ${cmd.n}`)
+      case 'zoom':
+        zoomByRef.current(cmd.dir)
+        return say(cmd.dir > 0 ? 'Plus grand' : 'Plus petit')
+      case 'loop':
+        setLoop(cmd.on)
+        return say(cmd.on ? 'En boucle' : 'Une seule fois')
+      case 'chords':
+        setChords(cmd.on)
+        return say(cmd.on ? 'Accords' : 'Sans accords')
+      case 'view':
+        setView({ view: cmd.view })
+        return say({ tab: 'Tablature', staff: 'Partition', both: 'Les deux' }[cmd.view])
+      case 'next':
+      case 'prev': {
+        const k = TABS.findIndex((t) => t.id === tabId)
+        const t = TABS[(k + (cmd.type === 'next' ? 1 : -1) + TABS.length) % TABS.length]
+        choose(t.id)
+        return say(t.title)
+      }
+      case 'stage':
+        if (cmd.on) enterStage()
+        else setStage(false)
+        return say(cmd.on ? 'Mode pupitre' : 'Quitter')
+      default:
     }
   }
+  const voice = useVoiceCommands(voiceOn, (cmd) => voiceAct.current(cmd))
+  useEffect(() => {
+    if (!voiceMsg) return undefined
+    const t = setTimeout(() => setVoiceMsg(''), 2500)
+    return () => clearTimeout(t)
+  }, [voiceMsg])
   const toggleRef = useRef(toggle)
   toggleRef.current = toggle
   const zoomBy = (dir) => {
     const i = ZOOMS.indexOf(zoom)
     setView({ zoom: ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, i + dir))] })
   }
+  const zoomByRef = useRef(zoomBy)
+  zoomByRef.current = zoomBy
 
   const choose = (id) => {
     if (clock.running) stop()
@@ -354,6 +440,29 @@ export default function TabPlayer({ params = {} }) {
     </div>
   )
   const clampBpm = (v) => Math.max(30, Math.min(180, v))
+  const voiceButton = voiceSupported() ? (
+    <button
+      className={`btn small voice-btn${voiceOn ? ' on' : ''}${voiceOn && voice.listening ? ' live' : ''}`}
+      onClick={() => setVoiceOn((v) => !v)}
+      aria-pressed={voiceOn}
+      title="Commandes vocales"
+    >
+      🎤 {voiceOn ? (voice.listening ? 'À l’écoute' : 'Micro…') : 'Voix'}
+    </button>
+  ) : null
+  const voiceStatus = voiceOn ? (
+    <div className="voice-status" aria-live="polite">
+      {voice.error ? <span className="error">{voice.error}</span> : voiceMsg ? <strong>✓ {voiceMsg}</strong> : <span className="muted">{voice.heard ? `« ${voice.heard} »` : 'Dites « joue », « stop », « au début », « mesure 3 », « plus vite »…'}</span>}
+      <button className="btn btn-ghost small" onClick={() => setVoiceHelp((h) => !h)}>{voiceHelp ? 'Masquer' : 'Toutes les commandes'}</button>
+      {voiceHelp && (
+        <ul className="voice-help">
+          {VOICE_HELP.map(([say, what]) => (
+            <li key={say}><b>{say}</b> {what}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  ) : null
 
   return (
     <div className={`tabplayer${stage ? ' stage' : ''}`}>
@@ -368,7 +477,9 @@ export default function TabPlayer({ params = {} }) {
           </div>
           {viewSwitch}
           {sizeControl}
+          {voiceButton}
           <button className={`btn ${running ? '' : 'btn-primary'} stage-play`} onClick={toggle}>{running ? '■ Stop' : '▶ Lire'}</button>
+          {voiceStatus}
         </div>
       ) : (
         <>
@@ -391,7 +502,9 @@ export default function TabPlayer({ params = {} }) {
             </label>
             {sizeControl}
             <button className="btn small" onClick={enterStage}>⛶ Mode pupitre</button>
+            {voiceButton}
           </div>
+          {voiceStatus}
           <p className="muted">{tab.tip}</p>
         </>
       )}
