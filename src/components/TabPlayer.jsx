@@ -4,6 +4,7 @@ import { Clock, pluck, strum, midiToFreq, OPEN_MIDI } from '../lib/audio.js'
 import { resolveChord } from '../lib/music.js'
 import { useSettings } from '../lib/settings.jsx'
 import { useVoiceCommands, voiceSupported, VOICE_HELP } from '../lib/voice.js'
+import { readUnlocked, tryUnlock, lock, isLocked } from '../lib/locks.js'
 import { useProgress } from '../lib/progress.jsx'
 import BpmControl from './BpmControl.jsx'
 import { StaffCell, TrebleClef, KeySignature, keyPcsOf, noteNameOf, computeBeams, STAFF_HEIGHT } from './Staff.jsx'
@@ -48,7 +49,9 @@ function playEvent(ev, time, vol) {
 
 export default function TabPlayer({ params = {} }) {
   const [tabId, setTabId] = useState(params.tab || 'les-pompiers')
-  const tab = TABS.find((t) => t.id === tabId) || TABS[0]
+  const [unlocked, setUnlocked] = useState(readUnlocked) // dossiers protégés déjà ouverts sur cet appareil
+  const visibleTabs = TABS.filter((t) => !isLocked(t.kind, unlocked))
+  const tab = visibleTabs.find((t) => t.id === tabId) || visibleTabs[0]
   const [bpm, setBpm] = useState(tab.bpm)
   const [loop, setLoop] = useState(true)
   const [mine, setMine] = useState(true) // entendre ma voix
@@ -301,8 +304,8 @@ export default function TabPlayer({ params = {} }) {
         return say({ tab: 'Tablature', staff: 'Partition', both: 'Les deux' }[cmd.view])
       case 'next':
       case 'prev': {
-        const k = TABS.findIndex((t) => t.id === tabId)
-        const t = TABS[(k + (cmd.type === 'next' ? 1 : -1) + TABS.length) % TABS.length]
+        const k = visibleTabs.findIndex((t) => t.id === tab.id)
+        const t = visibleTabs[(k + (cmd.type === 'next' ? 1 : -1) + visibleTabs.length) % visibleTabs.length]
         choose(t.id)
         return say(t.title)
       }
@@ -337,6 +340,7 @@ export default function TabPlayer({ params = {} }) {
 
   const groups = [
     ['cours', 'Mes morceaux de cours'],
+    ['arquebusiers', 'Arquebusiers'],
     ['technique', 'Techniques'],
     ['gamme', 'Gammes et phrases'],
     ['mélodie', 'Mélodies'],
@@ -483,16 +487,30 @@ export default function TabPlayer({ params = {} }) {
         </div>
       ) : (
         <>
-          {groups.map(([k, name]) => (
-            <div key={k}>
-              <span className="chip-group-label">{name}</span>
-              <div className="chips">
-                {TABS.filter((t) => t.kind === k).map((t) => (
-                  <button key={t.id} className={`chip${t.id === tabId ? ' on' : ''}`} onClick={() => choose(t.id)}>{t.title}</button>
-                ))}
+          {groups.map(([k, name]) =>
+            isLocked(k, unlocked) ? (
+              <LockedFolder key={k} name={name} onUnlock={(code) => {
+                const next = tryUnlock(k, code, unlocked)
+                if (next) setUnlocked(next)
+                return !!next
+              }} />
+            ) : (
+              <div key={k}>
+                <span className="chip-group-label">{name}</span>
+                <div className="chips">
+                  {TABS.filter((t) => t.kind === k).map((t) => (
+                    <button key={t.id} className={`chip${t.id === tab.id ? ' on' : ''}`} onClick={() => choose(t.id)}>{t.title}</button>
+                  ))}
+                  {k in { arquebusiers: 1 } && (
+                    <button className="chip chip-lock" onClick={() => {
+                      if (tab.kind === k) choose('les-pompiers')
+                      setUnlocked(lock(k, unlocked))
+                    }} title="Refermer le dossier">🔒 Verrouiller</button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ),
+          )}
           {tab.by && <p className="small muted">{tab.by}</p>}
           <div className="row wrap gap view-switch">
             {viewSwitch}
@@ -549,6 +567,47 @@ export default function TabPlayer({ params = {} }) {
           )}
           <button className={`btn btn-big ${running ? '' : 'btn-primary'}`} onClick={toggle}>{running ? '■ Stop' : '▶ Lire la tablature'}</button>
         </>
+      )}
+    </div>
+  )
+}
+
+// Dossier protégé : saisie du code (chiffres), le dossier reste ouvert ensuite sur cet appareil
+function LockedFolder({ name, onUnlock }) {
+  const [open, setOpen] = useState(false)
+  const [code, setCode] = useState('')
+  const [err, setErr] = useState(false)
+  const submit = (e) => {
+    e.preventDefault()
+    if (onUnlock(code)) return
+    setErr(true)
+    setCode('')
+  }
+  return (
+    <div>
+      <span className="chip-group-label">{name}</span>
+      {open ? (
+        <form className="lock-form" onSubmit={submit}>
+          <label htmlFor={`code-${name}`} className="small">Code du dossier</label>
+          <input
+            id={`code-${name}`}
+            className={`input lock-input${err ? ' bad' : ''}`}
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={8}
+            autoFocus
+            value={code}
+            onChange={(e) => { setCode(e.target.value.replace(/\D/g, '')); setErr(false) }}
+          />
+          <button className="btn btn-primary small" disabled={!code}>Ouvrir</button>
+          <button type="button" className="btn btn-ghost small" onClick={() => { setOpen(false); setErr(false); setCode('') }}>Annuler</button>
+          {err && <span className="error small" role="alert">Code incorrect</span>}
+        </form>
+      ) : (
+        <div className="chips">
+          <button className="chip chip-lock" onClick={() => setOpen(true)}>🔒 Dossier protégé, toucher pour ouvrir</button>
+        </div>
       )}
     </div>
   )

@@ -225,7 +225,7 @@ export const TABS = [
     id: 'brabanconne',
     res: 4, // durées en doubles croches (rythme pointé)
     title: 'La Brabançonne',
-    kind: 'cours',
+    kind: 'arquebusiers',
     by: 'Charles Rogier (paroles, 1860) · François Van Campenhout (musique, 1830) · hymne national belge, version de l’enseignement officiel',
     level: 3,
     bpm: 76,
@@ -264,7 +264,7 @@ export const TABS = [
     sharps: 2, // armure : Ré majeur (Fa#, Do#)
     res: 4, // durées en doubles croches (rythme pointé)
     title: 'Li tchant dès Walons',
-    kind: 'cours',
+    kind: 'arquebusiers',
     by: 'Théophile Bovy (paroles) · Louis Hillier (musique), © 1902 · hymne de la Wallonie',
     level: 3,
     bpm: 84,
