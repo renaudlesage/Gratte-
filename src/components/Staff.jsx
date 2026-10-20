@@ -18,7 +18,7 @@ export function staffStep(midi) {
 }
 const yOf = (step) => BOTTOM - (step * GAP) / 2
 
-function Note({ step, filled, stem, flags = 0, dot, sharp, up, stemTo }) {
+function Note({ step, filled, stem, flags = 0, dot, acc, up, stemTo }) {
   const y = yOf(step)
   const ledgers = []
   for (let s = -2; s >= step; s -= 2) ledgers.push(s)
@@ -29,7 +29,7 @@ function Note({ step, filled, stem, flags = 0, dot, sharp, up, stemTo }) {
   return (
     <>
       {ledgers.map((s) => <span key={s} className="st-ledger" style={{ top: yOf(s) }} />)}
-      {sharp && <span className="st-sharp" style={{ top: y }}>♯</span>}
+      {acc && <span className={`st-sharp${acc === '♭' ? ' flat' : ''}`} style={{ top: y }}>{acc}</span>}
       <span className={`st-head${filled ? '' : ' hollow'}`} style={{ top: y }} />
       {dot && <span className="st-dot" style={{ top: y - (step % 2 === 0 ? GAP / 2 : 0) }} />}
       {stem && (
@@ -52,32 +52,41 @@ function Rest({ q }) {
   return <span className="st-rest-glyph" style={{ top: yOf(4) - 12 }}>{q >= 4 ? '𝄽' : q >= 2 ? '𝄾' : '𝄿'}</span>
 }
 
-// Notes altérées : le dièse n'est pas répété quand il figure à l'armure
-const notesOf = (ev, keyPcs) =>
+// Tonalité : dièses (Fa, Do, Sol, Ré) ou bémols (Si, Mi, La, Ré), avec la lettre altérée par l'armure
+const KEY_SHARPS = [{ pc: 6, letter: 5, step: 8 }, { pc: 1, letter: 0, step: 5 }, { pc: 8, letter: 7, step: 9 }, { pc: 3, letter: 2, step: 6 }]
+const KEY_FLATS = [{ pc: 10, letter: 11, step: 4 }, { pc: 3, letter: 4, step: 7 }, { pc: 8, letter: 9, step: 3 }, { pc: 1, letter: 2, step: 6 }]
+export function keyOf(tab) {
+  const list = tab.flats ? KEY_FLATS.slice(0, tab.flats) : KEY_SHARPS.slice(0, tab.sharps || 0)
+  return { flat: !!tab.flats, pcs: new Set(list.map((k) => k.pc)), letters: new Set(list.map((k) => k.letter)) }
+}
+const NO_KEY = { flat: false, pcs: new Set(), letters: new Set() }
+
+// Orthographe d'une note : dièse ou bémol selon la tonalité (ou l'altération écrite, ev.acc), bécarre si
+// la lettre est altérée à l'armure. Les altérations sont répétées à chaque note (pas de report dans la mesure).
+const notesOf = (ev, key = NO_KEY) =>
   ev.n.map(([s, f]) => {
     const m = writtenMidi(s, f)
-    const isSharp = SHARP.has(m % 12)
-    return { m, step: staffStep(isSharp ? m - 1 : m), sharp: isSharp && !(keyPcs && keyPcs.has(m % 12)) }
+    const pc = m % 12
+    if (SHARP.has(pc)) {
+      const flat = ev.acc ? ev.acc === 'b' : key.flat
+      const inKey = key.pcs.has(pc) && key.flat === flat
+      return { m, step: staffStep(flat ? m + 1 : m - 1), acc: inKey ? null : flat ? '♭' : '♯' }
+    }
+    return { m, step: staffStep(m), acc: key.letters.has(pc) ? '♮' : null }
   })
 
-// Armure : Fa#, puis Do#, Sol#… (positions sur la portée en clé de sol)
-const KEY_SHARPS = [
-  { pc: 6, step: 8 },
-  { pc: 1, step: 5 },
-  { pc: 8, step: 9 },
-]
-export const keyPcsOf = (sharps = 0) => new Set(KEY_SHARPS.slice(0, sharps).map((k) => k.pc))
-export function KeySignature({ sharps = 0 }) {
-  return KEY_SHARPS.slice(0, sharps).map((k, i) => (
-    <span key={k.pc} className="st-keysig" style={{ left: 30 + i * 7, top: yOf(k.step) - 8 }}>♯</span>
+export function KeySignature({ tab }) {
+  const list = tab.flats ? KEY_FLATS.slice(0, tab.flats) : KEY_SHARPS.slice(0, tab.sharps || 0)
+  return list.map((k, i) => (
+    <span key={k.pc} className="st-keysig" style={{ left: 30 + i * 7, top: yOf(k.step) - 8 }}>{tab.flats ? '♭' : '♯'}</span>
   ))
 }
 
 // Ligatures : croches et doubles croches consécutives, regroupées par temps (3/4, doubles croches)
 // ou par demi-mesure (croches en 2/4 et 4/4). Les doubles croches ont une 2e barre (entière ou crochet).
-export function computeBeams(events, beats, res = 2, keyPcs) {
+export function computeBeams(events, beats, res = 2, key, group) {
   const q = (k) => sixteenths(events[k].d, res)
-  const groupLen = res > 2 || beats === 3 ? 4 : 8 // en doubles croches
+  const groupLen = group || (res > 2 || beats === 3 ? 4 : 8) // en doubles croches
   const out = events.map(() => null)
   let t = 0
   const starts = events.map((ev) => {
@@ -97,7 +106,7 @@ export function computeBeams(events, beats, res = 2, keyPcs) {
     while (isBeamable(j + 1) && Math.floor(starts[j + 1] / groupLen) === win) j++
     if (j > i) {
       const group = []
-      for (let k = i; k <= j; k++) group.push(notesOf(events[k], keyPcs))
+      for (let k = i; k <= j; k++) group.push(notesOf(events[k], key))
       const all = group.flat()
       const up = all.reduce((a, n) => a + n.step, 0) / all.length < 4
       // Ligature inclinée comme en gravure : elle suit la direction de la 1re à la dernière note
@@ -169,7 +178,7 @@ export function StaffCell({ ev, beam, res = 2, keyPcs, tieNext }) {
     <>
       <span className="st-note">
         {notes.map((n, k) => (
-          <Note key={k} step={n.step} filled={filled} dot={dot} sharp={n.sharp} up={up} stem={stem && n === anchor} flags={flags} stemTo={stemTo} />
+          <Note key={k} step={n.step} filled={filled} dot={dot} acc={n.acc} up={up} stem={stem && n === anchor} flags={flags} stemTo={stemTo} />
         ))}
       </span>
       {beam && !beam.last && <BeamSegment up={beam.up} y1={beam.beamY} y2={beam.nextY} />}

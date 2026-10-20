@@ -6,18 +6,37 @@ const X = (s, f, d, extra) => ({ n: [[s, f]], d, ...extra }) // note avec accord
 const R = (d) => ({ n: [], d }) // silence
 
 // Mélodie écrite en notation compacte : « [accord@]hauteur/durée[/parole] », « ~hauteur/durée » = note liée,
-// « ^hauteur/durée » = point d'orgue, « -/durée » = silence, « | » = barre de mesure. Hauteurs écrites (guitare), placées en 1re position.
-const POS = { D4: [4, 0], E4: [4, 2], F4: [4, 3], 'F#4': [4, 4], G4: [3, 0], 'G#4': [3, 1], A4: [3, 2], B4: [2, 0], C5: [2, 1], 'C#5': [2, 2], D5: [2, 3], E5: [1, 0], 'F#5': [1, 2] }
-function melody(src) {
-  return src.trim().split(/\s+/).filter((t) => t !== '|').map((tok) => {
+// « ^hauteur/durée » = point d'orgue, « -/durée » = silence, « | » = barre de mesure (ignorée).
+// Hauteurs écrites pour la guitare (C4, F#4, Bb4…), placées automatiquement en 1re position.
+// opts.transpose : demi-tons ajoutés (ex. −2 pour une partie de clarinette en si♭ jouée à la guitare).
+// opts.mul : multiplie les durées (ex. 3 pour écrire en doubles croches avec des triolets « 1t » = 2/3).
+const LETTER = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
+const OPEN_SOUND = [64, 59, 55, 50, 45, 40] // cordes 1 → 6, son réel
+function place(written) {
+  const s = written - 12 // la guitare sonne une octave sous l'écrit
+  for (let str = 1; str <= 6; str++) {
+    const f = s - OPEN_SOUND[str - 1]
+    if (f >= 0 && f <= (str === 1 ? 12 : 4)) return [str, f]
+  }
+  throw new Error('Note hors de portée de la guitare : ' + written)
+}
+const NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+function melody(src, opts = {}) {
+  const t = opts.transpose || 0
+  return src.trim().split(/\s+/).filter((x) => x !== '|').map((tok) => {
     let ch
     if (tok.includes('@')) [ch, tok] = tok.split('@')
     const tie = tok.startsWith('~')
     const fermata = tok.startsWith('^')
-    const [p, d, ly] = tok.replace(/^[~^]/, '').split('/')
-    if (p === '-') return R(Number(d))
-    if (!POS[p]) throw new Error('Hauteur inconnue : ' + p)
-    const ev = { n: [POS[p]], d: Number(d) }
+    const [p, dRaw, ly] = tok.replace(/^[~^]/, '').split('/')
+    const d = Math.round(parseFloat(dRaw) * (dRaw.endsWith('t') ? 2 / 3 : 1) * (opts.mul || 1))
+    if (p === '-') return R(d)
+    const m = p.match(/^([A-G])(#|b)?(\d)$/)
+    if (!m) throw new Error('Hauteur inconnue : ' + p)
+    const midi = 12 * (Number(m[3]) + 1) + LETTER[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + t
+    const ev = { n: [place(midi)], d }
+    // Note noire après transposition : dièse si la note écrite portait un dièse, bémol sinon (ex. Do♮ → Si♭)
+    if (NAMES_SHARP[midi % 12].length > 1) ev.acc = m[2] === '#' ? '#' : 'b'
     if (ch) ev.ch = ch
     if (ly) ev.ly = ly
     if (tie) ev.tie = true
@@ -220,6 +239,59 @@ export const TABS = [
       X(1, 0, 2, { ch: 'C' }), N(2, 1, 2), X(2, 3, 2, { ch: 'G7' }),
       X(2, 1, 6, { ch: 'C' }),
     ],
+  },
+  // ---------- Recueil des Arquebusiers (parties de clarinette en si♭, jouées un ton plus bas à la guitare) ----------
+  {
+    id: 'li-vile-usteie',
+    flats: 1, // Fa majeur (Sol majeur sur la partie de clarinette)
+    sig: [6, 8],
+    beats: 2, // deux temps (noire pointée)
+    res: 6, // unité : double croche, 6 par temps
+    u16: 1,
+    beamGroup: 6,
+    title: 'Li Vile Usteie',
+    kind: 'arquebusiers',
+    by: 'Air traditionnel de Visé · recueil des Arquebusiers, page 4',
+    level: 2,
+    bpm: 92,
+    tip: 'À 6/8 : deux temps par mesure, chaque temps se divise en trois croches. Transcrit de la partie de clarinette en si♭ et transposé d’un ton vers le bas : vous jouez ainsi dans la même tonalité que la fanfare (Fa majeur). Enchaînement : levée, couplet, refrain, puis la dernière partie deux fois (1re et 2e fin). La 2e fin ramène au signe (début) : cochez « En boucle ».',
+    notes: melody(`
+      -/6 -/4 D4/2 |
+      B4/4 B4/2 A#4/4 A4/2 | B4/6 D5/4 G4/2 | A4/4 G#4/2 A4/4 B4/2 | G4/6 -/4 B4/2 |
+      B4/4 B4/2 C5/4 B4/2 | A4/6 C5/6 | B4/4 D4/2 B4/4 A4/2 | G4/6 -/4 D4/2 |
+      C5/4 B4/2 D5/4 C5/2 | G#4/6 A4/4 B4/2 | D5/4 D5/2 E5/4 D5/2 | B4/6 -/4 B4/2 |
+      A4/4 A4/2 G4/4 G4/2 | F#4/4 -/2 A4/6 | B4/4 B4/2 C5/4 C5/2 | D5/6 -/4 D4/2 |
+      A4/4 G#4/2 A4/4 B4/2 | G4/6 -/4 G4/2 | A4/4 G#4/2 A4/4 B4/2 | D5/4 -/2 E5/6 |
+      ~E5/4 D5/2 C5/2 B4/2 A4/2 | G4/4 -/2 D4/2 C#4/2 D4/2 | B4/6 A4/6 | G4/6 -/4 D4/2 |
+      A4/4 G#4/2 A4/4 B4/2 | G4/6 -/4 G4/2 | A4/4 G#4/2 A4/4 B4/2 | D5/4 -/2 E5/6 |
+      ~E5/4 D5/2 C5/2 B4/2 A4/2 | G4/4 -/2 D4/2 C#4/2 D4/2 | B4/6 A4/6 | G4/2 D4/2 E4/2 F#4/2 G4/2 A4/2
+    `, { transpose: -2 }),
+  },
+  {
+    id: 'li-vix-cinq',
+    // Do majeur (Ré majeur sur la partie de clarinette)
+    beats: 2,
+    res: 12, // unité : 1/3 de double croche (triolets)
+    title: 'Li Vix Cinq',
+    kind: 'arquebusiers',
+    by: 'Air traditionnel de Visé · recueil des Arquebusiers, page 5',
+    level: 3,
+    bpm: 104,
+    tip: 'Marche à 2/4 en quatre parties, chacune jouée deux fois (reprises déjà déroulées ici, avec 1re et 2e fin). Transcrit de la partie de clarinette en si♭ et transposé d’un ton vers le bas : Do majeur, comme la fanfare. Attention au départ en triolet (Do-Ré-Mi rapides) et au rythme pointé (croche pointée + double croche) de la 3e partie. La 2e partie répète la même note : travaillez le rythme seul.',
+    notes: (() => {
+      const pick = '-/4 -/2 D4/1t E4/1t F#4/1t'
+      const A = 'G4/4 D5/4 | B4/4 -/2 B4/1 D5/1 | C#5/2 B4/2 A4/2 G4/2 | D5/4 -/2 D4/1 F#4/1 | G4/3 A4/1 B4/3 C#5/1 | D5/4 -/3 E5/1 | D5/4 -/3 E5/1 | D5/4 -/3 E5/1 | D5/4 E5/3 C#5/1 | B4/4 A4/4 | G4/4 -/4 | -/8'
+      const B = '-/2 D5/1 D5/1 D5/2 D5/1 D5/1 | D5/8 | ~D5/2 D5/1 D5/1 D5/2 D5/1 D5/1 | D5/8 | ~D5/2 D5/1 D5/1 D5/2 D5/1 D5/1 | D5/8 | ~D5/2 D5/1 D5/1 D5/2 D5/2'
+      const C = 'D5/3 D5/1 D5/3 D5/1 | E5/2 D5/4 C#5/2 | B4/3 B4/1 C#5/1 B4/1 A4/1 B4/1 | C#5/2 A4/4 D5/2 | D5/4 D5/3 D5/1 | E5/2 D5/4 C#5/2 | B4/2 C#5/1 B4/1 A4/2 D5/2'
+      const D1 = 'B4/4 C#5/1 B4/1 A4/1 B4/1 | C#5/2 A4/2 F#4/2 D4/2 | D5/4 C#5/1 D5/1 E5/1 D5/1 | C5/2 A4/2 F#4/2 D4/2'
+      const D = `${D1} | ${D1} | D5/3 D5/1 D5/3 D5/1 | E5/2 D5/4 C#5/2 | B4/4 C#5/1 B4/1 A4/1 B4/1 | C#5/2 A4/4 D5/2 | D5/4 D5/3 D5/1 | E5/2 D5/4 C#5/2 | B4/2 C#5/1 B4/1 A4/2 D5/2`
+      return melody([
+        pick, A, pick, A, '-/8',
+        B, 'D5/4 -/4', B, 'D5/4 -/3 D5/1',
+        C, 'G4/1 D4/1 E4/1 F#4/1 G4/1 A4/1 B4/1 C#5/1', C, 'G4/4 -/2 D4/2',
+        D, 'G4/4 -/2 D4/2', D, 'G4/4 -/4',
+      ].join(' | '), { transpose: -2, mul: 3 })
+    })(),
   },
   {
     id: 'brabanconne',

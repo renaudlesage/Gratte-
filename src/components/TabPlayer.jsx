@@ -8,7 +8,7 @@ import { readUnlocked, tryUnlock, lock, isLocked } from '../lib/locks.js'
 import ScanFolder from './ScanFolder.jsx'
 import { useProgress } from '../lib/progress.jsx'
 import BpmControl from './BpmControl.jsx'
-import { StaffCell, TrebleClef, KeySignature, keyPcsOf, noteNameOf, computeBeams, STAFF_HEIGHT } from './Staff.jsx'
+import { StaffCell, TrebleClef, KeySignature, keyOf, noteNameOf, computeBeams, STAFF_HEIGHT } from './Staff.jsx'
 
 const VIEW_KEY = 'gratte.tabview'
 const readView = () => {
@@ -189,15 +189,18 @@ export default function TabPlayer({ params = {} }) {
   useEffect(() => () => clock.stop(), [clock])
 
 
-  const keyPcs = useMemo(() => keyPcsOf(tab.sharps), [tab])
-  const beams = useMemo(() => computeBeams(tab.notes, tab.beats, res, keyPcs), [tab, res, keyPcs])
+  const keyPcs = useMemo(() => keyOf(tab), [tab])
+  // Unité des durées pour la portée : doubles croches par unité (6/8 : tab.u16 = 1 avec res = 6)
+  const staffRes = tab.u16 ? 4 / tab.u16 : res
+  const beams = useMemo(() => computeBeams(tab.notes, tab.beats, staffRes, keyPcs, tab.beamGroup), [tab, staffRes, keyPcs])
   const barLen = tab.beats * res
   const isBar = (i) => i > 0 && timeline.starts[i] % barLen === 0
 
   // Mise en page en lignes, comme une partition imprimée : autant de mesures par ligne que la largeur le permet
   const zoom = display.zoom || nearestZoom(autoZoom(boxW, stage))
   const baseCell = res > 2 ? (hasLyrics ? 32 : 22) : hasLyrics ? 34 : 26
-  const nameW = (tab.sharps || 0) > 1 ? 72 : 62
+  const nAcc = tab.flats || tab.sharps || 0 // nombre d'altérations à l'armure
+  const nameW = nAcc > 1 ? 72 : 62
   const layout = useMemo(() => {
     const bars = []
     tab.notes.forEach((ev, i) => {
@@ -375,17 +378,17 @@ export default function TabPlayer({ params = {} }) {
           <div className="tabsheet-row staff-row" style={{ height: STAFF_HEIGHT }}>
             <span className="tab-name staff-name">
               <TrebleClef />
-              <KeySignature sharps={tab.sharps} />
+              <KeySignature tab={tab} />
               {k === 0 && (
-                <span className="st-time" style={(tab.sharps || 0) > 1 ? { left: 52 } : undefined}>
-                  <b>{tab.beats}</b>
-                  <b>4</b>
+                <span className="st-time" style={nAcc > 1 ? { left: 52 } : undefined}>
+                  <b>{tab.sig ? tab.sig[0] : tab.beats}</b>
+                  <b>{tab.sig ? tab.sig[1] : 4}</b>
                 </span>
               )}
             </span>
             {idx.map((i) => (
               <span key={i} className={cls(i, 'staff')} style={cellStyle(tab.notes[i].d)}>
-                <StaffCell ev={tab.notes[i]} beam={beams[i]} res={res} keyPcs={keyPcs} tieNext={!!tab.notes[i + 1]?.tie} />
+                <StaffCell ev={tab.notes[i]} beam={beams[i]} res={staffRes} keyPcs={keyPcs} tieNext={!!tab.notes[i + 1]?.tie} />
               </span>
             ))}
           </div>
