@@ -5,10 +5,14 @@ import { strum } from '../lib/audio.js'
 import { useProgress } from '../lib/progress.jsx'
 import ChordDiagram from './ChordDiagram.jsx'
 import ChordCheck from './ChordCheck.jsx'
+import { useAccess } from '../lib/access.jsx'
 
 export default function Lessons({ params = {}, navigate }) {
   const { tasks, toggleTask, lessonDone, nextLesson } = useProgress()
-  const [open, setOpen] = useState(params.id || nextLesson?.id || LESSONS[0].id)
+  const { can } = useAccess()
+  // Élève : seulement les leçons activées par le prof (la numérotation reste celle du parcours)
+  const shown = LESSONS.map((l, i) => ({ l, i })).filter(({ l }) => can('lecon:' + l.id))
+  const [open, setOpen] = useState(params.id || (nextLesson && can('lecon:' + nextLesson.id) ? nextLesson.id : shown[0]?.l.id))
   const [checkId, setCheckId] = useState(null)
 
   useEffect(() => {
@@ -17,13 +21,14 @@ export default function Lessons({ params = {}, navigate }) {
 
   return (
     <div className="lessons">
-      {LESSONS.map((l, i) => {
+      {!shown.length && <p className="muted">Ton prof n’a pas encore activé de leçon.</p>}
+      {shown.map(({ l, i }, k) => {
         const done = lessonDone(l)
         const nDone = l.tasks.filter((t) => tasks[t.id]).length
         const isOpen = open === l.id
         return (
           <div key={l.id} style={{ display: 'contents' }}>
-          {(i === 0 || (LESSONS[i - 1].parcours || 1) !== (l.parcours || 1)) && (
+          {(k === 0 || (shown[k - 1].l.parcours || 1) !== (l.parcours || 1)) && (
             <h3 className="section-title parcours-title">{(l.parcours || 1) === 1 ? 'Parcours 1 · Les bases' : 'Parcours 2 · Techniques et improvisation'}</h3>
           )}
           <section className={`lesson${isOpen ? ' open' : ''}${done ? ' done' : ''}`}>

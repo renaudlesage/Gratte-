@@ -6,6 +6,9 @@ import { useSettings } from '../lib/settings.jsx'
 import { useVoiceCommands, voiceSupported, VOICE_HELP } from '../lib/voice.js'
 import { readUnlocked, tryUnlock, lock, isLocked } from '../lib/locks.js'
 import ScanFolder from './ScanFolder.jsx'
+import RemoteScores from './RemoteScores.jsx'
+import { useAccess } from '../lib/access.jsx'
+import { useRemoteScores } from '../lib/scores.js'
 import { useProgress } from '../lib/progress.jsx'
 import BpmControl from './BpmControl.jsx'
 import { StaffCell, TrebleClef, KeySignature, keyOf, noteNameOf, computeBeams, STAFF_HEIGHT } from './Staff.jsx'
@@ -48,10 +51,29 @@ function playEvent(ev, time, vol) {
   })
 }
 
-export default function TabPlayer({ params = {} }) {
+// Partitions accessibles selon le rôle : élève = activées par le prof ; sinon tout (dossiers à code compris)
+export default function Partitions({ params = {} }) {
+  const { mode, can } = useAccess()
+  const { list } = useRemoteScores()
+  // Tablatures envoyées par le super admin (format de l'appli), ajoutées au lecteur
+  const remoteTabs = list.filter((x) => x.kind === 'tab' && x.tab?.notes?.length).map((x) => ({ ...x.tab, id: 'score:' + x.id, title: x.title, kind: 'prof', by: x.tab.by || x.folder }))
+  const all = [...TABS, ...remoteTabs]
+  const tabs = mode === 'eleve' ? all.filter((t) => t.kind === 'prof' || can('tab:' + t.id)) : all
+  if (!tabs.length) {
+    return (
+      <div className="tabplayer">
+        <RemoteScores scores={list} />
+        {!list.length && <p className="muted">Ton prof n’a pas encore activé de partition.</p>}
+      </div>
+    )
+  }
+  return <TabPlayer params={params} allTabs={tabs} scores={list} student={mode === 'eleve'} />
+}
+
+function TabPlayer({ params = {}, allTabs, scores, student }) {
   const [tabId, setTabId] = useState(params.tab || 'les-pompiers')
   const [unlocked, setUnlocked] = useState(readUnlocked) // dossiers protégés déjà ouverts sur cet appareil
-  const visibleTabs = TABS.filter((t) => !isLocked(t.kind, unlocked))
+  const visibleTabs = student ? allTabs : allTabs.filter((t) => !isLocked(t.kind, unlocked))
   const tab = visibleTabs.find((t) => t.id === tabId) || visibleTabs[0]
   const [bpm, setBpm] = useState(tab.bpm)
   const [loop, setLoop] = useState(true)
@@ -71,7 +93,7 @@ export default function TabPlayer({ params = {} }) {
   }
   const showStaff = display.view !== 'tab'
   const showTab = display.view !== 'staff'
-  const partner = tab.partner ? TABS.find((t) => t.id === tab.partner) : null
+  const partner = tab.partner ? visibleTabs.find((t) => t.id === tab.partner) || null : null
   const hasChords = tab.notes.some((ev) => ev.ch)
   const hasLyrics = tab.notes.some((ev) => ev.ly)
   const [running, setRunning] = useState(false)
@@ -337,12 +359,14 @@ export default function TabPlayer({ params = {} }) {
 
   const choose = (id) => {
     if (clock.running) stop()
-    const t = TABS.find((x) => x.id === id)
+    const t = visibleTabs.find((x) => x.id === id)
+    if (!t) return
     setTabId(id)
     setBpm(t.bpm)
   }
 
   const groups = [
+    ['prof', 'Envoyées par le prof'],
     ['cours', 'Mes morceaux de cours'],
     ['arquebusiers', 'Arquebusiers'],
     ['technique', 'Techniques'],
@@ -491,8 +515,9 @@ export default function TabPlayer({ params = {} }) {
         </div>
       ) : (
         <>
-          {groups.map(([k, name]) =>
-            isLocked(k, unlocked) ? (
+          <RemoteScores scores={scores} />
+          {groups.filter(([k]) => visibleTabs.some((t) => t.kind === k) || (!student && isLocked(k, unlocked))).map(([k, name]) =>
+            !student && isLocked(k, unlocked) ? (
               <LockedFolder key={k} name={name} onUnlock={(code) => {
                 const next = tryUnlock(k, code, unlocked)
                 if (next) setUnlocked(next)
@@ -502,17 +527,17 @@ export default function TabPlayer({ params = {} }) {
               <div key={k}>
                 <span className="chip-group-label">{name}</span>
                 <div className="chips">
-                  {TABS.filter((t) => t.kind === k).map((t) => (
+                  {visibleTabs.filter((t) => t.kind === k).map((t) => (
                     <button key={t.id} className={`chip${t.id === tab.id ? ' on' : ''}`} onClick={() => choose(t.id)}>{t.title}</button>
                   ))}
-                  {k in { arquebusiers: 1 } && (
+                  {!student && k in { arquebusiers: 1 } && (
                     <button className="chip chip-lock" onClick={() => {
-                      if (tab.kind === k) choose('les-pompiers')
+                      if (tab.kind === k) choose(visibleTabs.find((t) => t.kind !== k)?.id)
                       setUnlocked(lock(k, unlocked))
                     }} title="Refermer le dossier">🔒 Verrouiller</button>
                   )}
                 </div>
-                {k === 'arquebusiers' && <ScanFolder folder="arquebusiers" />}
+                {!student && k === 'arquebusiers' && <ScanFolder folder="arquebusiers" />}
               </div>
             ),
           )}

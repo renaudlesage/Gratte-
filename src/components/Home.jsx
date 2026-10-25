@@ -39,6 +39,7 @@ export default function Home({ navigate }) {
       </div>
       <div className="progress-bar" aria-label={`Progression ${pct} %`}><span style={{ width: `${pct}%` }} /></div>
       <button className="btn btn-ghost small stats-link" onClick={() => navigate('progres')}>Mes progrès : calendrier, courbes et badges →</button>
+      <button className="btn btn-ghost small stats-link" onClick={() => navigate('reglages')}>Tu as un code de classe ? Rejoins ton prof →</button>
 
       <section className="coach">
         <div className="coach-head">

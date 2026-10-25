@@ -90,7 +90,7 @@ async function rotateBlob(blob) {
   return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.85))
 }
 
-function ScanViewer({ pages, index, setIndex, onClose, onChange, onDelete }) {
+export function ScanViewer({ pages, index, setIndex, onClose, onChange, onDelete }) {
   const page = pages[index]
   const url = useMemo(() => URL.createObjectURL(page.blob), [page])
   useEffect(() => () => URL.revokeObjectURL(url), [url])
@@ -151,8 +151,8 @@ function ScanViewer({ pages, index, setIndex, onClose, onChange, onDelete }) {
           <span className="size-val">{Math.round(zoom * 100)} %</span>
           <button className="btn btn-round small" onClick={() => setZoom(ZOOMS[Math.min(ZOOMS.length - 1, zi + 1)])} disabled={zi >= ZOOMS.length - 1} aria-label="Plus grand">A+</button>
         </div>
-        <button className="btn small" onClick={async () => onChange({ ...page, blob: await rotateBlob(page.blob) })} title="Tourner la page">⟳ Tourner</button>
-        {confirm ? (
+        {onChange && <button className="btn small" onClick={async () => onChange({ ...page, blob: await rotateBlob(page.blob) })} title="Tourner la page">⟳ Tourner</button>}
+        {!onDelete ? null : confirm ? (
           <>
             <button className="btn small btn-danger" onClick={() => onDelete(page)}>Supprimer la page</button>
             <button className="btn btn-ghost small" onClick={() => setConfirm(false)}>Annuler</button>

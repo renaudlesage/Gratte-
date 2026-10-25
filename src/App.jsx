@@ -20,6 +20,9 @@ import SoundToggle from './components/SoundToggle.jsx'
 import Progress from './components/Progress.jsx'
 import Recorder from './components/Recorder.jsx'
 import { decodeSong } from './lib/share.js'
+import { AccessProvider, useAccess } from './lib/access.jsx'
+import { StudentHome } from './components/Account.jsx'
+import ProfPanel from './components/ProfPanel.jsx'
 
 const NAV = [
   ['accueil', 'Accueil', '⌂'],
@@ -29,7 +32,7 @@ const NAV = [
   ['chansons', 'Chansons', '♫'],
   ['outils', 'Outils', '♩'],
 ]
-const TAB_IDS = [...NAV.map((n) => n[0]), 'reglages', 'progres']
+const TAB_IDS = [...NAV.map((n) => n[0]), 'reglages', 'progres', 'prof']
 
 const readHash = () => {
   const t = window.location.hash.replace('#/', '').replace('#', '').split('/')[0]
@@ -58,8 +61,25 @@ const PRACTICE = [
   ['oreille', 'Oreille'],
 ]
 
+// Onglets visibles selon les activations (mode élève) ; partitions : dès qu'une tablature ou une page est activée
+const practiceAllowed = (a, id) => (id === 'tabs' ? a.canAny('tab') || a.canAny('score') : a.can('pratique.' + id))
+const PRACTICE_IDS = PRACTICE.map((p) => p[0])
+const TOOLS = [['accordeur', 'Accordeur'], ['metronome', 'Métronome'], ['enregistrer', 'Enregistrer']]
+function navAllowed(a, id) {
+  if (id === 'lecons') return a.canAny('lecon')
+  if (id === 'accords') return a.can('accords')
+  if (id === 'pratique') return PRACTICE_IDS.some((p) => practiceAllowed(a, p))
+  if (id === 'chansons') return a.canAny('chanson')
+  if (id === 'outils') return TOOLS.some(([t]) => a.can('outils.' + t))
+  if (id === 'prof') return a.mode === 'prof' || a.mode === 'admin'
+  return true
+}
+
 function Practice({ params }) {
-  const [mode, setMode] = useState(params.mode || 'minute')
+  const a = useAccess()
+  const tabs = PRACTICE.filter(([id]) => practiceAllowed(a, id))
+  const [chosen, setMode] = useState(params.mode || 'minute')
+  const mode = tabs.some(([id]) => id === chosen) ? chosen : tabs[0]?.[0]
   const { lessonDone } = useProgress()
   useEffect(() => {
     if (params.mode) setMode(params.mode)
@@ -67,7 +87,7 @@ function Practice({ params }) {
   const own = params.mode === mode ? params : {}
   return (
     <>
-      <Tabs tabs={PRACTICE} value={mode} onChange={setMode} scroll />
+      <Tabs tabs={tabs} value={mode} onChange={setMode} scroll />
       {mode === 'minute' && <MinuteChallenge params={own} />}
       {mode === 'enchainement' && <ChordFlow params={own} />}
       {mode === 'rythmes' && <Strumming params={own} />}
@@ -79,13 +99,16 @@ function Practice({ params }) {
 }
 
 function Tools({ params }) {
-  const [tool, setTool] = useState(params.tool || 'accordeur')
+  const a = useAccess()
+  const tools = TOOLS.filter(([id]) => a.can('outils.' + id))
+  const [chosen, setTool] = useState(params.tool || 'accordeur')
+  const tool = tools.some(([id]) => id === chosen) ? chosen : tools[0]?.[0]
   useEffect(() => {
     if (params.tool) setTool(params.tool)
   }, [params])
   return (
     <>
-      <Tabs tabs={[['accordeur', 'Accordeur'], ['metronome', 'Métronome'], ['enregistrer', 'Enregistrer']]} value={tool} onChange={setTool} />
+      <Tabs tabs={tools} value={tool} onChange={setTool} />
       {tool === 'accordeur' && <Tuner />}
       {tool === 'metronome' && <Metronome />}
       {tool === 'enregistrer' && <Recorder />}
@@ -102,9 +125,19 @@ const TITLES = {
   outils: 'Outils',
   reglages: 'Réglages',
   progres: 'Mes progrès',
+  prof: 'Espace prof',
 }
 
 export default function App() {
+  return (
+    <AccessProvider>
+      <Shell />
+    </AccessProvider>
+  )
+}
+
+function Shell() {
+  const access = useAccess()
   const [route, setRoute] = useState(() => sharedRoute() || { tab: readHash(), params: {} })
 
   useEffect(() => {
@@ -123,7 +156,10 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const { tab, params } = route
+  const nav = NAV.filter(([id]) => navAllowed(access, id))
+  // Onglet non autorisé (élève) : retour à l'accueil
+  const tab = navAllowed(access, route.tab) ? route.tab : 'accueil'
+  const { params } = route
 
   return (
     <SettingsProvider>
@@ -134,11 +170,15 @@ export default function App() {
               <span className="brand-mark">◐</span> Gratte
             </button>
             <nav className="nav-desktop">
-              {NAV.map(([id, label]) => (
+              {nav.map(([id, label]) => (
                 <button key={id} className={tab === id ? 'on' : ''} onClick={() => navigate(id)}>{label}</button>
               ))}
             </nav>
             <div className="topbar-right">
+              {access.mode === 'eleve' && <span className="role-chip" title={access.student.classe}>🎒 {access.student.prenom}</span>}
+              {(access.mode === 'prof' || access.mode === 'admin') && (
+                <button className={`icon-btn${tab === 'prof' ? ' on' : ''}`} onClick={() => navigate('prof')} aria-label="Espace prof" title="Espace prof">🎓</button>
+              )}
               <SoundToggle />
               <button className={`icon-btn${tab === 'reglages' ? ' on' : ''}`} onClick={() => navigate('reglages')} aria-label="Réglages" title="Réglages">
                 ⚙
@@ -148,7 +188,8 @@ export default function App() {
 
           <main className="content">
             {TITLES[tab] && <h2 className="page-title">{TITLES[tab]}</h2>}
-            {tab === 'accueil' && <Home navigate={navigate} />}
+            {tab === 'accueil' && (access.mode === 'eleve' ? <StudentHome navigate={navigate} /> : <Home navigate={navigate} />)}
+            {tab === 'prof' && <ProfPanel />}
             {tab === 'lecons' && <Lessons params={params} navigate={navigate} />}
             {tab === 'accords' && <ChordLibrary params={params} />}
             {tab === 'pratique' && <Practice params={params} />}
@@ -159,7 +200,7 @@ export default function App() {
           </main>
 
           <nav className="nav-mobile">
-            {NAV.map(([id, label, icon]) => (
+            {nav.map(([id, label, icon]) => (
               <button key={id} className={tab === id ? 'on' : ''} onClick={() => navigate(id)}>
                 <span className="nav-icon">{icon}</span>
                 <span>{label}</span>

@@ -57,16 +57,21 @@ Fonctionne tel quel dans StackBlitz (importer le dépôt GitHub).
 
 Importer le dépôt : le preset **Vite** est détecté (build `npm run build`, sortie `dist`). Le micro (accordeur, vérification d'accords) et l'installation sur téléphone demandent le HTTPS, fourni par Vercel.
 
-## Synchronisation entre appareils (facultatif)
+## Rôles : super admin, prof, élève
 
-Sans configuration, l'appli reste 100 % locale. Pour l'activer :
+L'appli est reliée au projet Supabase « famille-hub » (tables préfixées `gratte_`, voir `supabase/migrations/`). Sans connexion, elle reste en **mode libre** : tout est accessible.
 
-1. Dans un projet Supabase, exécuter `supabase/migrations/001_gratte_progress.sql` (table + règles RLS : chacun ne voit que sa progression).
-2. Dans Vercel, ajouter les variables `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` (voir `.env.example`), puis redéployer.
-3. Supabase > Authentication > URL Configuration : ajouter l'URL Vercel dans **Site URL** et **Redirect URLs**.
-4. Facultatif, pour se connecter avec un code (pratique dans l'appli installée) : Authentication > Email Templates > Magic Link, ajouter `{{ .Token }}` au message.
+- **Super admin** (adresse enregistrée dans `gratte_admins`) : accès à tout, gestion des profs, **envoi de partitions** (photos ou .zip de pages, tablatures .json) rangées par dossier. Bouton 🎓 en haut à droite.
+- **Prof** (adresse ajoutée par le super admin) : se connecte dans Réglages › Compte (lien ou code reçu par e-mail), crée ses classes et obtient un **code de classe**. Il active pour toute la classe ou pour un élève : leçons, exercices et outils, partitions de l'appli, partitions envoyées, chansons. Il choisit aussi le **code de sortie** du mode élève.
+- **Élève** (sans adresse e-mail) : Réglages › Je suis élève, code de classe + prénom + code secret à 4 chiffres (5 erreurs → 15 minutes de blocage). Il ne voit que ce que le prof a activé ; les nouveautés arrivent au retour sur l'appli et toutes les minutes. Quitter le mode élève demande le code de sortie du prof.
 
-Connexion par lien magique (ou code) dans **Réglages**. Fusion : records au maximum, jours et historiques réunis, objectif coché ou décoché le plus récent, grilles personnelles les plus récentes (suppressions comprises).
+Sécurité : règles RLS sur toutes les tables ; les élèves passent par des fonctions RPC qui vérifient leur jeton. Le contenu intégré à l'appli (leçons, partitions de l'appli) reste techniquement présent dans le code public : le mode élève guide, il ne protège pas un secret. Les partitions envoyées, elles, ne quittent le serveur que pour les élèves à qui elles ont été activées.
+
+À régler une fois dans Supabase (famille-hub) › Authentication › URL Configuration : ajouter l'adresse de Gratte (Vercel) dans **Redirect URLs** pour que le lien de connexion des profs ramène à Gratte. Pour la connexion par code, le modèle d'e-mail « Magic Link » doit contenir `{{ .Token }}`.
+
+## Synchronisation entre appareils
+
+Une fois connecté (Réglages › Compte), la progression est synchronisée (table `gratte_progress`). Fusion : records au maximum, jours et historiques réunis, objectif coché ou décoché le plus récent, grilles personnelles les plus récentes (suppressions comprises). Les variables `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` permettent de pointer vers un autre projet.
 
 ## Score de rythme : principe et limites
 
@@ -97,7 +102,10 @@ src/
   lib/music.js              transposition, barrés générés, capo
   lib/coach.js              séance du jour
   lib/progress.jsx          progression locale
-  lib/merge.js, sync.js     synchronisation Supabase (optionnelle)
+  lib/merge.js, sync.js     synchronisation de la progression
+  lib/cloud.js              client Supabase partagé
+  lib/access.jsx            rôles et activations (libre, élève, prof, super admin)
+  lib/scores.js             partitions envoyées par le super admin
   lib/settings.jsx          réglages
   data/                     accords, leçons, rythmes, arpèges, chansons, tablatures, accordages
   components/               écrans

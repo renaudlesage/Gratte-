@@ -3,6 +3,8 @@ import { VOICES, strum } from '../lib/audio.js'
 import { useSettings } from '../lib/settings.jsx'
 import { useProgress } from '../lib/progress.jsx'
 import { wakeLockSupported } from '../lib/useWakeLock.js'
+import { useAccess } from '../lib/access.jsx'
+import { JoinClass, LeaveClass } from './Account.jsx'
 import { buildIcs, notificationsSupported, enableNotifications, disableNotifications } from '../lib/reminder.js'
 
 function Segmented({ value, options, onChange, name }) {
@@ -48,6 +50,7 @@ export default function Settings() {
 
   return (
     <div className="settings">
+      <ClassSection />
       <section className="setting">
         <div>
           <strong>Son de guitare</strong>
@@ -231,8 +234,8 @@ function SyncSection({ sync }) {
   return (
     <section className="setting column">
       <div>
-        <strong>Synchronisation entre appareils</strong>
-        <small>Retrouvez votre progression sur le téléphone, la tablette et l’ordinateur.</small>
+        <strong>Compte (prof, super admin, synchronisation)</strong>
+        <small>Connexion par e-mail : retrouvez votre progression sur tous vos appareils. Les profs enregistrés accèdent ensuite à l’Espace prof (🎓).</small>
       </div>
       {sync.user ? (
         <>
@@ -269,6 +272,32 @@ function SyncSection({ sync }) {
           {msg && <p className="small">{msg}</p>}
         </>
       )}
+    </section>
+  )
+}
+
+// Élève : rejoindre une classe ou la quitter (code de sortie du prof)
+function ClassSection() {
+  const { mode, student, role } = useAccess()
+  if (mode === 'eleve') {
+    return (
+      <section className="setting column" id="classe">
+        <div>
+          <strong>Ma classe : {student.classe}</strong>
+          <small>Connecté(e) comme {student.prenom}. Tu vois les leçons et les morceaux que ton prof a activés.</small>
+        </div>
+        <LeaveClass />
+      </section>
+    )
+  }
+  if (role) return null
+  return (
+    <section className="setting column" id="classe">
+      <div>
+        <strong>Je suis élève</strong>
+        <small>Ton prof t’a donné un code de classe ? Tu ne verras alors que ce qu’il a activé pour toi.</small>
+      </div>
+      <JoinClass />
     </section>
   )
 }

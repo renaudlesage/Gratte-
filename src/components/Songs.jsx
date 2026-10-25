@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { SONGS, SONG_TEMPLATE, parseSong } from '../data/songs.js'
+import { useAccess } from '../lib/access.jsx'
 import { Clock, strum } from '../lib/audio.js'
 import { resolveChord, shapeFor, suggestCapo, withCapo, transposeChord } from '../lib/music.js'
 import { useProgress } from '../lib/progress.jsx'
@@ -21,7 +22,9 @@ export default function Songs({ params = {} }) {
   }, [params.importSong])
   const { saveSong } = useProgress()
 
-  const all = [...SONGS, ...userSongs]
+  const { can } = useAccess()
+  const songs = SONGS.filter((s) => can('chanson:' + s.id))
+  const all = [...songs, ...userSongs]
   const song = view.id ? all.find((s) => s.id === view.id) : null
 
   if (view.mode === 'edit') return <SongEditor song={song} onDone={(id) => setView(id ? { mode: 'play', id } : { mode: 'list' })} />
@@ -42,7 +45,8 @@ export default function Songs({ params = {} }) {
       <p className="muted">Suivez la grille au tempo : l’accord en cours s’allume. Capodastre et transposition sont dans chaque chanson.</p>
       <h3 className="section-title">Airs traditionnels</h3>
       <div className="song-list">
-        {SONGS.map((s) => <SongRow key={s.id} song={s} onOpen={() => setView({ mode: 'play', id: s.id })} />)}
+        {!songs.length && <p className="muted small">Ton prof n’a pas encore activé de chanson.</p>}
+        {songs.map((s) => <SongRow key={s.id} song={s} onOpen={() => setView({ mode: 'play', id: s.id })} />)}
       </div>
       <h3 className="section-title">Mes grilles</h3>
       <div className="song-list">

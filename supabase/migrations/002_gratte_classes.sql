@@ -96,6 +96,7 @@ create table if not exists public.gratte_scores (
   created_at timestamptz not null default now()
 );
 create index if not exists gratte_scores_created_by on public.gratte_scores (created_by);
+create index if not exists gratte_classes_owner on public.gratte_classes (owner);
 
 create table if not exists public.gratte_score_pages (
   score_id uuid not null references public.gratte_scores (id) on delete cascade,
@@ -112,7 +113,6 @@ begin
   insert into public.gratte_unlocks (class_id, item) values (new.id, 'outils.accordeur'), (new.id, 'outils.metronome');
   return new;
 end $$;
-drop trigger if exists gratte_class_defaults on public.gratte_classes;
 create trigger gratte_class_defaults after insert on public.gratte_classes for each row execute function public.gratte_class_defaults();
 
 -- ---------- Sécurité (RLS) ----------
@@ -165,6 +165,7 @@ create policy gratte_pages_delete on public.gratte_score_pages for delete to aut
 
 -- ---------- Accès élève (sans compte) ----------
 -- Rejoindre une classe ou se reconnecter : prénom + code secret à 4 chiffres. 5 erreurs → 15 minutes de blocage.
+-- Les erreurs sont renvoyées en {error} (et non en exception) pour que le compteur d'essais soit conservé.
 create or replace function public.gratte_student_join(p_code text, p_prenom text, p_pin text) returns json
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -172,22 +173,22 @@ declare
   st public.gratte_students;
   nm text := btrim(regexp_replace(coalesce(p_prenom, ''), '\s+', ' ', 'g'));
 begin
-  if coalesce(p_pin, '') !~ '^[0-9]{4}$' then raise exception 'Le code secret doit avoir 4 chiffres.'; end if;
-  if length(nm) < 1 or length(nm) > 40 then raise exception 'Prénom invalide.'; end if;
+  if coalesce(p_pin, '') !~ '^[0-9]{4}$' then return json_build_object('error', 'Le code secret doit avoir 4 chiffres.'); end if;
+  if length(nm) < 1 or length(nm) > 40 then return json_build_object('error', 'Prénom invalide.'); end if;
   select * into cl from public.gratte_classes where code = upper(btrim(coalesce(p_code, '')));
-  if not found then raise exception 'Code de classe inconnu.'; end if;
+  if not found then return json_build_object('error', 'Code de classe inconnu.'); end if;
   select * into st from public.gratte_students where class_id = cl.id and lower(prenom) = lower(nm);
   if not found then
     insert into public.gratte_students (class_id, prenom, pin_hash)
       values (cl.id, nm, extensions.crypt(p_pin, extensions.gen_salt('bf'))) returning * into st;
   else
     if st.locked_until is not null and st.locked_until > now() then
-      raise exception 'Trop d''essais : réessayez dans quelques minutes.';
+      return json_build_object('error', 'Trop d''essais : réessayez dans quelques minutes.');
     end if;
     if st.pin_hash <> extensions.crypt(p_pin, st.pin_hash) then
       update public.gratte_students set fails = fails + 1,
         locked_until = case when fails + 1 >= 5 then now() + interval '15 minutes' end where id = st.id;
-      raise exception 'Ce prénom existe déjà dans la classe avec un autre code secret.';
+      return json_build_object('error', 'Ce prénom existe déjà dans la classe avec un autre code secret.');
     end if;
     update public.gratte_students set fails = 0, locked_until = null where id = st.id;
   end if;
@@ -243,3 +244,10 @@ revoke execute on function public.gratte_student_join(text, text, text), public.
 grant execute on function public.gratte_student_join(text, text, text), public.gratte_student_state(uuid),
   public.gratte_student_page(uuid, uuid, int), public.gratte_student_leave(uuid, text) to anon, authenticated;
 revoke execute on function public.gratte_class_defaults() from public, anon, authenticated;
+revoke execute on function public.gratte_new_code() from public, anon;
+grant execute on function public.gratte_new_code() to authenticated; -- code par défaut à la création d'une classe
+revoke execute on function public.gratte_is_admin(), public.gratte_is_teacher(), public.gratte_role(), public.gratte_owns_class(uuid) from public, anon;
+grant execute on function public.gratte_is_admin(), public.gratte_is_teacher(), public.gratte_role(), public.gratte_owns_class(uuid) to authenticated;
+
+-- Super admin initial
+insert into public.gratte_admins (email) values ('renaudlesage@gmail.com') on conflict do nothing;

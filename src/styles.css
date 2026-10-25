@@ -648,3 +648,25 @@ input[type="time"].small-input { width: 120px; }
 .scan-box { flex: 1; overflow: auto; overscroll-behavior: contain; padding: 10px 0 20px; touch-action: pan-x pan-y pinch-zoom; }
 .scan-wrap { margin: 0 auto; max-width: none; }
 .scan-img { display: block; width: 100%; height: auto; background: #fff; border-radius: 6px; user-select: none; }
+/* Rôles : élève, prof, super admin */
+.role-chip { font-size: 0.8rem; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
+.join-form { display: grid; gap: 10px; max-width: 420px; }
+.code-input { letter-spacing: 0.25em; font-size: 1.1rem; text-transform: uppercase; }
+.student-home .chips { margin-bottom: 6px; }
+.prof-panel { display: grid; gap: 14px; }
+.classes { display: grid; gap: 12px; }
+.class-detail { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+.class-codes { display: flex; flex-wrap: wrap; gap: 14px 32px; align-items: flex-end; }
+.class-codes > div { display: grid; gap: 4px; }
+.class-code { font-family: var(--display); font-size: 2rem; letter-spacing: 0.18em; color: var(--accent); }
+.student-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.student-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.student-list li .btn { margin-left: auto; }
+.class-detail details { border-top: 1px solid var(--line); padding-top: 8px; }
+.class-detail summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+.unlock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 14px; margin: 6px 0 10px; }
+.unlock { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; padding: 4px 0; cursor: pointer; }
+.unlock input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+.unlock.on span { color: var(--text); font-weight: 600; }
+.unlock.inherited { opacity: 0.55; cursor: default; }
+.danger-zone { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-top: 1px solid var(--line); padding-top: 10px; }

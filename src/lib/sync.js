@@ -4,25 +4,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mergeStates, normalizeState } from './merge.js'
 
-const env = import.meta.env || {}
-const URL = env.VITE_SUPABASE_URL
-const KEY = env.VITE_SUPABASE_ANON_KEY
-export const syncConfigured = !!(URL && KEY)
+import { cloudConfigured as syncConfigured, getClient } from './cloud.js'
+export { syncConfigured }
 
 const TABLE = 'gratte_progress'
-let clientPromise = null
-
-function getClient() {
-  if (!syncConfigured) return Promise.resolve(null)
-  if (!clientPromise) {
-    clientPromise = import('@supabase/supabase-js').then(({ createClient }) =>
-      createClient(URL, KEY, {
-        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce', storageKey: 'gratte.auth' },
-      }),
-    )
-  }
-  return clientPromise
-}
 
 export function useSync(state, setState) {
   const [user, setUser] = useState(null)
