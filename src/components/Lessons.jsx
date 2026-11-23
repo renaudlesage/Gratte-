@@ -6,6 +6,7 @@ import { useProgress } from '../lib/progress.jsx'
 import ChordDiagram from './ChordDiagram.jsx'
 import ChordCheck from './ChordCheck.jsx'
 import LessonStepper from './LessonStepper.jsx'
+import RecallWarmup from './RecallWarmup.jsx'
 import { useAccess } from '../lib/access.jsx'
 import { useSettings } from '../lib/settings.jsx'
 import { taskProof, PROOF_LABEL } from '../lib/evidence.js'
@@ -24,6 +25,7 @@ export default function Lessons({ params = {}, navigate }) {
   const [open, setOpen] = useState(params.id || (nextLesson && can('lecon:' + nextLesson.id) ? nextLesson.id : shown[0]?.l.id))
   const [checkId, setCheckId] = useState(null)
   const [stepper, setStepper] = useState(null) // id de la leçon en mode pas à pas
+  const [warmed, setWarmed] = useState({}) // leçons dont l'échauffement de mémoire est fait ou passé
 
   useEffect(() => {
     if (params.id) setOpen(params.id)
@@ -37,6 +39,8 @@ export default function Lessons({ params = {}, navigate }) {
         const nDone = l.tasks.filter((t) => tasks[t.id] || taskProof(t, progress)).length
         const actions = l.actions.filter((a) => targetAllowed(access, a.tab, a.params))
         const isOpen = open === l.id
+        // Accords des leçons précédentes du même parcours, à retrouver de mémoire avant la leçon (si elle n'est pas finie)
+        const prevChords = done ? [] : [...new Set(LESSONS.slice(0, i).filter((x) => (x.parcours || 1) === (l.parcours || 1)).flatMap((x) => x.chords))].filter((c) => !l.chords.includes(c))
         return (
           <div key={l.id} style={{ display: 'contents' }}>
           {(k === 0 || (shown[k - 1].l.parcours || 1) !== (l.parcours || 1)) && (
@@ -53,6 +57,9 @@ export default function Lessons({ params = {}, navigate }) {
             </button>
             {isOpen && (
               <div className="lesson-body">
+                {!warmed[l.id] && prevChords.length > 0 && (
+                  <RecallWarmup key={l.id} chords={prevChords} onDone={() => setWarmed((w) => ({ ...w, [l.id]: true }))} />
+                )}
                 <p className="lesson-intro">{T(l.intro)}</p>
                 {l.chords.length > 0 && (
                   <div className="lesson-chords">

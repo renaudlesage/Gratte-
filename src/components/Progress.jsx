@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react'
 import { useProgress } from '../lib/progress.jsx'
 import { useSettings } from '../lib/settings.jsx'
 import { computeBadges, heatmap, maxStreak } from '../lib/badges.js'
+import { useAddress } from '../lib/address.js'
+import { PATTERNS } from '../data/patterns.js'
+import { chordText } from '../lib/chordText.js'
 
 const level = (n) => (n === 0 ? 0 : n === 1 ? 1 : n <= 3 ? 2 : n <= 6 ? 3 : 4)
 const frDate = (d) => new Date(d + 'T12:00:00').toLocaleDateString('fr-BE', { day: 'numeric', month: 'short' })
@@ -17,6 +20,8 @@ export default function Progress() {
   const pairs = [...new Set(p.history.map((h) => h.pair))]
   const [pair, setPair] = useState(pairs[0] || null)
   const series = (pair ? p.history.filter((h) => h.pair === pair) : []).map((h) => ({ date: h.date, v: h.count }))
+  const t = useAddress()
+  const proofs = progressProofs(p, label, t)
   const rhythmSeries = p.activity.filter((a) => a.type === 'rhythmscore').map((a) => ({ date: a.date, v: a.value, key: a.key }))
 
   return (
@@ -35,6 +40,27 @@ export default function Progress() {
           <span>jours de pratique</span>
         </div>
       </div>
+
+      <h3 className="section-title">Avant / maintenant</h3>
+      {proofs.length ? (
+        <ul className="proofs">
+          {proofs.map((x) => (
+            <li key={x.id}>
+              <strong>{x.title}</strong>
+              <div className="then-now-row">
+                <span className="before">{x.before}</span>
+                <span aria-hidden="true">→</span>
+                <span className="now">{x.now}</span>
+              </div>
+              <small>{x.why}</small>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted small">{t('Vos preuves de progrès apparaîtront ici après quelques séances : premier score contre record au défi minute, tempo de départ contre tempo validé, accords reconnus au micro.', 'Tes preuves de progrès apparaîtront ici après quelques séances : premier score contre record au défi minute, tempo de départ contre tempo validé, accords reconnus au micro.')}</p>
+      )}
+      <Calibration history={p.history} t={t} />
+      <Journal journal={p.journal} label={label} t={t} />
 
       <h3 className="section-title">Calendrier de pratique</h3>
       <div className="heat-scroll">
@@ -142,5 +168,102 @@ function LineChart({ data, unit, title, max }) {
         </div>
       </div>
     </figure>
+  )
+}
+
+const pairName = (k, label) => k.split('|').map(label).join(' ↔ ')
+
+// Preuves concrètes tirées de l'historique, attribuées à ce qui a été fait (répétition, paliers mérités), sans flatterie
+function progressProofs(p, label, t) {
+  const out = []
+  const byPair = {}
+  for (const h of p.history) (byPair[h.pair] ||= []).push(h)
+  Object.entries(byPair)
+    .filter(([, hs]) => hs.length >= 2)
+    .map(([k, hs]) => ({ k, first: hs[0], best: Math.max(...hs.map((h) => h.count)), n: hs.length }))
+    .filter((g) => g.best > g.first.count)
+    .sort((x, y) => y.best - y.first.count - (x.best - x.first.count))
+    .slice(0, 2)
+    .forEach((g) =>
+      out.push({
+        id: `pair-${g.k}`,
+        title: `Défi minute ${pairName(g.k, label)}`,
+        before: `${g.first.count} au 1er essai (${frDate(g.first.date)})`,
+        now: `record : ${g.best}`,
+        why: t(`${g.n} défis sur cette paire : c’est la répétition qui a construit ces +${g.best - g.first.count}.`, `${g.n} défis sur cette paire : c’est ta répétition qui a construit ces +${g.best - g.first.count}.`),
+      }),
+    )
+  for (const [id, bpm] of Object.entries(p.rhythm)) {
+    const pat = PATTERNS.find((x) => x.id === id)
+    if (!pat || !bpm) continue
+    const firstAct = p.activity.find((a) => a.type === 'rhythm' && a.key === id && a.value)
+    const start = firstAct ? Math.min(firstAct.value, bpm) : 60
+    if (bpm <= start) continue
+    out.push({
+      id: `rythme-${id}`,
+      title: `Rythme « ${pat.name} »`,
+      before: `${start} BPM ${firstAct ? `(${frDate(firstAct.date)})` : 'au départ'}`,
+      now: `${bpm} BPM validé`,
+      why: 'Le tempo n’a monté qu’après des évaluations au micro au-dessus de 85 % : chaque palier a été gagné.',
+    })
+  }
+  const checks = p.activity.filter((a) => a.type === 'check' && a.key)
+  const chords = [...new Set(checks.map((a) => a.key))]
+  if (chords.length >= 1) {
+    out.push({
+      id: 'micro',
+      title: 'Accords validés au micro',
+      before: `1er : ${label(checks[0].key)} (${frDate(checks[0].date)})`,
+      now: `${chords.length} accord${chords.length > 1 ? 's' : ''}`,
+      why: `${chords.map(label).join(', ')} : chacun reconnu par le micro, pas seulement coché.`,
+    })
+  }
+  return out
+}
+
+// Justesse des pronostics au défi minute (calibration)
+function Calibration({ history, t }) {
+  const withPred = history.filter((h) => Number.isFinite(h.pred))
+  if (withPred.length < 2) return null
+  const ok = withPred.filter((h) => Math.abs(h.count - h.pred) <= 2).length
+  const over = withPred.filter((h) => h.pred - h.count > 2).length
+  const under = withPred.filter((h) => h.count - h.pred > 2).length
+  return (
+    <p className="small" style={{ marginTop: 10 }}>
+      <strong>{t('Vos pronostics', 'Tes pronostics')} :</strong> {ok} juste{ok > 1 ? 's' : ''} à 2 près sur {withPred.length}
+      {over > under ? ' ; plutôt au-dessus du résultat.' : under > over ? t(' ; vous vous sous-estimez plutôt.', ' ; tu te sous-estimes plutôt.') : '.'}
+    </p>
+  )
+}
+
+const MET = { oui: 'atteint', partiel: 'en partie', non: 'pas encore' }
+const FEEL = { facile: 'facile', juste: 'juste bien', dur: 'difficile' }
+
+// Carnet de séance : les derniers bilans (ce qui a accroché, ressenti)
+function Journal({ journal = [], label, t }) {
+  const items = journal.filter((e) => e.feel || e.snag).slice(-5).reverse()
+  if (!items.length) return null
+  const snag = (s) => {
+    if (!s || s === 'none') return 'rien de spécial'
+    if (s.startsWith('pair:')) return pairName(s.slice(5), label)
+    if (s.startsWith('chord:')) return label(s.slice(6))
+    if (s.startsWith('rhythm:')) return `rythme « ${PATTERNS.find((x) => x.id === s.slice(7))?.name || s.slice(7)} »`
+    return s
+  }
+  return (
+    <>
+      <h3 className="section-title">{'Carnet de séance'}</h3>
+      <ul className="journal-list">
+        {items.map((e) => (
+          <li key={e.date}>
+            <time dateTime={e.date}>{frDate(e.date)}</time>
+            <span>
+              {e.goalText && <>🎯 {chordText(e.goalText, label)}{e.met ? ` (${MET[e.met]})` : ''} · </>}
+              accroché : {snag(e.snag)}{e.feel ? ` · ${FEEL[e.feel]}` : ''}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </>
   )
 }

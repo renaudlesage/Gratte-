@@ -715,3 +715,50 @@ input[type="time"].small-input { width: 120px; }
 @keyframes toast-in { from { transform: translateY(12px); opacity: 0; } }
 @media (min-width: 900px) { .toast-zone { bottom: 24px; } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
+/* Encadrement de la séance : point du jour, bilan, plan « quand… je prends ma guitare » */
+.coach-plan { margin: 6px 0 0; color: var(--muted); }
+.coach-goal { margin: 0 0 10px; color: var(--text); }
+.coach-item.goal { border-color: var(--accent); }
+.coach-item.goal .coach-check { border-color: var(--accent); font-size: 0.8rem; }
+.coach-end { display: block; margin: 12px auto 0; }
+.srl-card { margin: 12px 0; padding: 14px; background: var(--card); border: 1px solid var(--accent); border-radius: var(--radius); display: flex; flex-direction: column; gap: 10px; }
+.srl-card > .btn-ghost { align-self: flex-start; }
+.srl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.srl-card .srl-q, .srl-q { margin: 0 0 8px; }
+.srl-options { display: flex; flex-direction: column; gap: 8px; }
+.srl-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.srl-row + .srl-row, .srl-chords + .srl-row { margin-top: 8px; }
+.srl-chords { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.srl-opt { flex: 1 1 auto; min-height: 48px; padding: 10px 14px; border: 1px solid var(--line); background: var(--card-2); color: var(--text); border-radius: 14px; font-weight: 600; text-align: left; display: flex; flex-direction: column; justify-content: center; }
+.srl-row .srl-opt { text-align: center; align-items: center; }
+.srl-opt small { color: var(--muted); font-weight: 400; font-size: 0.78rem; }
+.srl-opt[aria-pressed='true'], .chip[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.srl-opt[aria-pressed='true'] small { color: var(--accent-ink); }
+.srl-opt:active { transform: scale(0.98); }
+
+/* Défi minute : pronostic puis comparaison (calibration) */
+.predict { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 4px 0 14px; }
+.predict p { margin: 0; text-align: center; }
+.predict .srl-row { justify-content: center; }
+.predict .srl-opt { flex: 0 0 auto; min-width: 72px; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.calib { margin: 10px auto; max-width: 420px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.calib-nums { display: flex; justify-content: center; gap: 22px; font-variant-numeric: tabular-nums; }
+.calib-nums span { display: flex; flex-direction: column; align-items: center; font-size: 0.8rem; color: var(--muted); }
+.calib-nums strong { font-size: 1.5rem; color: var(--text); }
+.calib p { margin: 6px 0 0; }
+.then-now { margin: 6px 0 0; }
+
+/* Mes progrès : preuves « avant / maintenant » */
+.proofs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.proofs li { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; }
+.proofs .then-now-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.proofs .before { color: var(--muted); }
+.proofs .now { font-family: var(--display); font-size: 1.3rem; color: var(--accent-2); }
+.proofs small { display: block; color: var(--muted); margin-top: 2px; }
+.journal-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; }
+.journal-list li { display: flex; gap: 10px; }
+.journal-list time { flex: none; width: 52px; color: var(--muted); }
+.intention { display: flex; flex-direction: column; gap: 8px; }
+.intention-text { margin: 0; padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--card-2); border-radius: 8px; }
+.srl-card p { margin: 0; }

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { LESSONS } from '../data/lessons.js'
-import { EMPTY, normalizeState } from './merge.js'
+import { EMPTY, normalizeState, JOURNAL_LIMIT } from './merge.js'
 import { useSync } from './sync.js'
 import { kvSet } from './reminder.js'
 import { lessonMet } from './evidence.js'
@@ -71,14 +71,17 @@ export function ProgressProvider({ children }) {
     }))
   }, [])
 
-  const recordChallenge = useCallback((a, b, count) => {
+  // pred : pronostic fait avant le défi (calibration), facultatif
+  const recordChallenge = useCallback((a, b, count, pred = null) => {
     const key = pairKey(a, b)
     const d = today()
     const isRecord = count > (stateRef.current.bests[key] || 0)
+    const entry = { t: new Date().toISOString(), date: d, pair: key, count }
+    if (Number.isFinite(pred)) entry.pred = pred
     setState((s) => ({
       ...s,
       bests: count > (s.bests[key] || 0) ? { ...s.bests, [key]: count } : s.bests,
-      history: [...s.history, { t: new Date().toISOString(), date: d, pair: key, count }].slice(-300),
+      history: [...s.history, entry].slice(-300),
       days: withDay(s, d),
     }))
     return isRecord
@@ -102,6 +105,16 @@ export function ProgressProvider({ children }) {
   // Suppression « douce » pour qu'elle se propage aux autres appareils
   const deleteSong = useCallback((id) => {
     setState((s) => ({ ...s, songs: s.songs.map((x) => (x.id === id ? { id, deleted: true, updatedAt: Date.now() } : x)) }))
+  }, [])
+
+  // Carnet de séance : complète l'entrée du jour (objectif choisi au départ, bilan à la fin)
+  const saveJournal = useCallback((patch) => {
+    const d = today()
+    setState((s) => {
+      const prev = s.journal.find((e) => e.date === d) || { date: d }
+      const next = { ...prev, ...patch, date: d, t: Date.now() }
+      return { ...s, journal: [...s.journal.filter((e) => e.date !== d), next].slice(-JOURNAL_LIMIT) }
+    })
   }, [])
 
   const reset = useCallback(() => setState(EMPTY), [])
@@ -128,10 +141,11 @@ export function ProgressProvider({ children }) {
       logActivity,
       saveSong,
       deleteSong,
+      saveJournal,
       reset,
       sync,
     }
-  }, [state, markPracticed, toggleTask, recordChallenge, recordBest, recordRhythm, logActivity, saveSong, deleteSong, reset, sync])
+  }, [state, markPracticed, toggleTask, recordChallenge, recordBest, recordRhythm, logActivity, saveSong, deleteSong, saveJournal, reset, sync])
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>
 }

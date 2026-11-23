@@ -18,6 +18,7 @@ import Settings from './components/Settings.jsx'
 import Tabs from './components/Tabs.jsx'
 import Progress from './components/Progress.jsx'
 import Recorder from './components/Recorder.jsx'
+import ChordRecall from './components/ChordRecall.jsx'
 import { decodeSong } from './lib/share.js'
 import { AccessProvider, useAccess } from './lib/access.jsx'
 import { StudentHome } from './components/Account.jsx'
@@ -62,6 +63,7 @@ const PRACTICE = [
   ['arpeges', 'Arpèges'],
   ['tabs', 'Partitions'],
   ['oreille', 'Oreille'],
+  ['rappel', 'Rappel'],
 ]
 
 // Onglets visibles selon les activations (mode élève) : voir lib/navAccess.js
@@ -86,6 +88,7 @@ function Practice({ params }) {
       {mode === 'arpeges' && <Arpeggios params={own} />}
       {mode === 'tabs' && <TabPlayer params={own} />}
       {mode === 'oreille' && <EarTraining knownChords={knownChords(lessonDone)} />}
+      {mode === 'rappel' && <ChordRecall knownChords={knownChords(lessonDone)} />}
     </>
   )
 }

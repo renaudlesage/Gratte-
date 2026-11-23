@@ -30,7 +30,28 @@ export async function kvSet(key, value) {
 
 const pad = (n) => String(n).padStart(2, '0')
 
-export function buildIcs({ hour, minute }, url) {
+// Intention de mise en œuvre : « Quand [moment précis], je prends ma guitare. »
+// Un moment de la journée qui arrive de toute façon (pas « quand j'aurai le temps ») ; l'heure sert au rappel.
+export const CUES = [
+  { id: 'reveil', when: 'Au réveil', hour: 7, minute: 30 },
+  { id: 'rentree', when: 'En rentrant', hour: 17, minute: 30 },
+  { id: 'diner', when: 'Après le dîner', hour: 20, minute: 0 },
+  { id: 'autre', when: 'À heure fixe', hour: null, minute: null },
+]
+
+// Phrase du plan, à la première personne : « Après le dîner, je prends ma guitare. »
+export function intentionText(reminder) {
+  const cue = CUES.find((c) => c.id === reminder?.cue)
+  if (!cue) return ''
+  const when = cue.id === 'autre' ? `À ${reminder.hour} h ${pad(reminder.minute)}` : cue.when
+  return `${when}, je prends ma guitare.`
+}
+
+// Texte iCalendar : virgules, points-virgules et barres obliques inverses échappés
+const esc = (t) => t.replace(/[\\,;]/g, (c) => '\\' + c)
+
+export function buildIcs({ hour, minute, cue }, url) {
+  const plan = intentionText({ hour, minute, cue })
   const now = new Date()
   const start = new Date(now)
   start.setHours(hour, minute, 0, 0)
@@ -48,8 +69,8 @@ export function buildIcs({ hour, minute }, url) {
     `DTSTART:${local(start)}`,
     'DURATION:PT15M',
     'RRULE:FREQ=DAILY',
-    'SUMMARY:🎸 Séance de guitare (Gratte)',
-    `DESCRIPTION:15 minutes avec le coach du jour. ${url}`,
+    plan ? `SUMMARY:🎸 ${esc(plan)}` : 'SUMMARY:🎸 Séance de guitare (Gratte)',
+    `DESCRIPTION:${plan ? `Mon plan : ${esc(plan)} ` : ''}15 minutes avec le coach du jour. Si le temps manque : juste le défi minute (2 min). ${url}`,
     `URL:${url}`,
     'BEGIN:VALARM',
     'ACTION:DISPLAY',

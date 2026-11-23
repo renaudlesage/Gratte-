@@ -8,8 +8,13 @@ import { pickBetween, diagnose } from '../lib/chordDetect.js'
 import { STRING_NAMES } from '../lib/audio.js'
 import { useChordListener, PLAYING_RMS } from '../lib/useChordListener.js'
 import { useSettings } from '../lib/settings.jsx'
+import { useAddress } from '../lib/address.js'
 
 const DURATION = 60
+const frDate = (d) => new Date(d + 'T12:00:00').toLocaleDateString('fr-BE', { day: 'numeric', month: 'short' })
+
+// Trois pronostics proches du record (ou des repères pour un premier essai)
+const predictions = (best) => (best > 0 ? [...new Set([Math.max(0, best - 3), best, best + 3])] : [5, 10, 15])
 
 export default function MinuteChallenge({ params = {} }) {
   const [a, setA] = useState(params.pair?.[0] || 'Em')
@@ -20,8 +25,14 @@ export default function MinuteChallenge({ params = {} }) {
   const [record, setRecord] = useState(false)
   const timer = useRef(null)
   const countRef = useRef(0)
-  const { bests, recordChallenge } = useProgress()
+  const { bests, history, recordChallenge } = useProgress()
   const { label } = useSettings()
+  const t = useAddress()
+  // Calibration : pronostic en un toucher avant le défi, comparé au résultat
+  const [pred, setPred] = useState(null)
+  const predRef = useRef(null)
+  predRef.current = pred
+  const [shownPred, setShownPred] = useState(null)
   const [autoMic, setAutoMic] = useState(false)
   const [selfCount, setSelfCount] = useState(false) // compter à voix haute, saisir le total à la fin
   const [typed, setTyped] = useState('')
@@ -80,7 +91,9 @@ export default function MinuteChallenge({ params = {} }) {
       return
     }
     setPhase('done')
-    setRecord(recordChallenge(a, b, countRef.current))
+    setShownPred(predRef.current)
+    setRecord(recordChallenge(a, b, countRef.current, predRef.current))
+    setPred(null)
   }, [a, b, recordChallenge, mic.stop])
 
   const selfCountRef = useRef(false)
@@ -91,7 +104,9 @@ export default function MinuteChallenge({ params = {} }) {
     countRef.current = n
     setCount(n)
     setPhase('done')
-    setRecord(recordChallenge(a, b, n))
+    setShownPred(predRef.current)
+    setRecord(recordChallenge(a, b, n, predRef.current))
+    setPred(null)
   }
 
   const start = async (useMic = autoMic) => {
@@ -105,6 +120,7 @@ export default function MinuteChallenge({ params = {} }) {
     countRef.current = 0
     setCount(0)
     setRecord(false)
+    setShownPred(null)
     setPhase('countdown')
     let n = 3
     setLeft(n)
@@ -211,6 +227,7 @@ export default function MinuteChallenge({ params = {} }) {
               Compter à voix haute, saisir le total à la fin (sans lâcher la guitare)
             </label>
           )}
+          <Predict best={best} pred={pred} setPred={setPred} t={t} />
           {micFailed}
           <button className="btn btn-primary btn-big" onClick={() => start()} disabled={a === b}>Lancer le défi</button>
         </div>
@@ -237,15 +254,22 @@ export default function MinuteChallenge({ params = {} }) {
         </form>
       )}
 
+      <p className="visually-hidden" aria-live="polite">
+        {phase === 'done' ? `${count} changements en 1 minute.${shownPred !== null ? ` Pronostic : ${shownPred}.` : ''}${record ? ' Nouveau record.' : ''}` : ''}
+      </p>
+
       {phase === 'done' && (
         <div className="result">
           <div className="result-num">{count}</div>
           <div>changements en 1 minute</div>
           {record ? <p className="record">🏆 Nouveau record !</p> : best > 0 && <p className="muted">Record : {best}</p>}
-          <p className="muted small">
+          <Calibration pred={shownPred} count={count} history={history} t={t} />
+          <ThenNow pairHistory={history.filter((h) => h.pair === pairKey(a, b))} count={count} t={t} />
+          {!(shownPred !== null && count < shownPred - 2) && <p className="muted small">
             {count < 20 ? 'Ralentissez et visez la propreté : la vitesse viendra toute seule.' : count < 40 ? 'Bien ! Refaites le défi demain, le cerveau consolide pendant la nuit.' : 'Excellent, ce changement est presque automatique. Passez à une autre paire.'}
-          </p>
+          </p>}
           <Quality q={quality.current} label={label} />
+          <Predict best={best} pred={pred} setPred={setPred} t={t} again />
           {micFailed}
           <button className="btn btn-primary" onClick={() => start()}>Recommencer</button>
         </div>
@@ -274,5 +298,66 @@ function Quality({ q, label }) {
         </p>
       )}
     </div>
+  )
+}
+
+// Pronostic avant le défi : un toucher (facultatif), retoucher pour annuler
+function Predict({ best, pred, setPred, t, again = false }) {
+  return (
+    <div className="predict" role="group" aria-labelledby="predict-q">
+      <p className="small" id="predict-q">
+        <strong>{t('Votre pronostic', 'Ton pronostic')}{again ? ' pour le prochain essai' : ''} ?</strong>{' '}
+        <span className="muted">{t('Combien de changements propres pensez-vous faire ?', 'Combien de changements propres penses-tu faire ?')}</span>
+      </p>
+      <div className="srl-row">
+        {predictions(best).map((v) => (
+          <button key={v} type="button" className="srl-opt" aria-pressed={pred === v} onClick={() => setPred(pred === v ? null : v)}>
+            {v}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Pronostic contre résultat : nommer l'écart, sans jugement, et en tirer quoi faire
+function Calibration({ pred, count, history, t }) {
+  if (pred === null || pred === undefined) return null
+  const diff = count - pred
+  const recent = history.filter((h) => Number.isFinite(h.pred)).slice(-5)
+  const over = recent.filter((h) => h.pred - h.count > 2).length
+  const under = recent.filter((h) => h.count - h.pred > 2).length
+  let msg
+  if (Math.abs(diff) <= 2) msg = t('Pronostic juste : vous savez où vous en êtes. C’est ce qui permet de doser le travail au bon endroit.', 'Pronostic juste : tu sais où tu en es. C’est ce qui permet de doser le travail au bon endroit.')
+  else if (diff > 0) msg = t(`${diff} de plus que prévu : vous en savez plus que vous ne le pensiez. Osez un pronostic plus haut la prochaine fois.`, `${diff} de plus que prévu : tu en sais plus que tu ne le pensais. Ose un pronostic plus haut la prochaine fois.`)
+  else msg = t(`${-diff} de moins que prévu. Courant : un changement qui paraît acquis l’est moins sous chrono. Ralentissez et visez la propreté plutôt que la vitesse.`, `${-diff} de moins que prévu. Courant : un changement qui paraît acquis l’est moins sous chrono. Ralentis et vise la propreté plutôt que la vitesse.`)
+  const trend =
+    recent.length >= 3 && over >= 3
+      ? t(`Vos ${recent.length} derniers pronostics : ${over} au-dessus du résultat. Le défi lui-même est le meilleur test : fiez-vous au chiffre.`, `Tes ${recent.length} derniers pronostics : ${over} au-dessus du résultat. Le défi lui-même est le meilleur test : fie-toi au chiffre.`)
+      : recent.length >= 3 && under >= 3
+        ? t(`Vos ${recent.length} derniers pronostics : ${under} en dessous du résultat. Vous vous sous-estimez régulièrement.`, `Tes ${recent.length} derniers pronostics : ${under} en dessous du résultat. Tu te sous-estimes régulièrement.`)
+        : null
+  return (
+    <div className="calib">
+      <div className="calib-nums">
+        <span><strong>{pred}</strong>pronostic</span>
+        <span><strong>{count}</strong>réel</span>
+      </div>
+      <p className="small">{msg}</p>
+      {trend && <p className="small muted">{trend}</p>}
+    </div>
+  )
+}
+
+// Preuve de progrès sur cette paire : premier essai contre aujourd'hui, attribuée à la répétition
+function ThenNow({ pairHistory, count, t }) {
+  if (pairHistory.length < 2) return null
+  const first = pairHistory[0]
+  const n = pairHistory.length
+  if (count < first.count + 3) return null
+  return (
+    <p className="small then-now">
+      {t('Premier essai sur cette paire', 'Premier essai sur cette paire')} ({frDate(first.date)}) : <strong>{first.count}</strong>. {t('Aujourd’hui', 'Aujourd’hui')} : <strong>{count}</strong>, {t(`après ${n} défis. C’est la répétition qui a fait cette différence.`, `après ${n} défis. C’est ta répétition qui a fait cette différence.`)}
+    </p>
   )
 }

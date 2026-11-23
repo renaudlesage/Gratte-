@@ -1,5 +1,5 @@
 // Ce qu'un écran de destination demande comme activation (mode élève). Partagé par App, Lessons et le coach.
-export const PRACTICE_IDS = ['minute', 'enchainement', 'rythmes', 'arpeges', 'tabs', 'oreille']
+export const PRACTICE_IDS = ['minute', 'enchainement', 'rythmes', 'arpeges', 'tabs', 'oreille', 'rappel']
 export const TOOL_IDS = ['accordeur', 'metronome', 'enregistrer']
 
 export const practiceAllowed = (a, id) => (id === 'tabs' ? a.canAny('tab') || a.canAny('score') : a.can('pratique.' + id))
