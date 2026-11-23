@@ -84,17 +84,17 @@ export default function LessonStepper({ lesson, onClose }) {
   const chords = lesson.chords.filter((c) => items[i].includes(`{${c}}`))
 
   return (
-    <div className="stepper" role="region" aria-label={`Leçon pas à pas : ${lesson.title}`}>
-      <div className="stepper-top">
-        <span className="stepper-count">Étape {i + 1}/{items.length}</span>
+    <div className="lstep" role="region" aria-label={`Leçon pas à pas : ${lesson.title}`}>
+      <div className="lstep-top">
+        <span className="lstep-count">Étape {i + 1}/{items.length}</span>
         <button className="btn btn-ghost small" onClick={onClose}>✕ Quitter le pas à pas</button>
       </div>
-      <div className="stepper-dots" aria-hidden="true">
+      <div className="lstep-dots" aria-hidden="true">
         {items.map((_, k) => <span key={k} className={k === i ? 'on' : k < i ? 'past' : ''} />)}
       </div>
-      <p className="stepper-text" ref={box} tabIndex={-1} aria-live="polite">{chordText(items[i], label)}</p>
+      <p className="lstep-text" ref={box} tabIndex={-1} aria-live="polite">{chordText(items[i], label)}</p>
       {chords.length > 0 && (
-        <div className="stepper-chords">
+        <div className="lstep-chords">
           {chords.map((c) => (
             <button key={c} className="chord-mini" onClick={() => strum(getChord(c).frets)} aria-label={`Écouter ${label(c)}`}>
               <ChordDiagram chord={getChord(c)} size={110} />
@@ -102,7 +102,7 @@ export default function LessonStepper({ lesson, onClose }) {
           ))}
         </div>
       )}
-      <div className="stepper-nav">
+      <div className="lstep-nav">
         <button className="btn btn-big" onClick={() => go(i - 1)} disabled={i === 0} aria-label="Étape précédente">←</button>
         {canSpeak() && (
           <button className="btn btn-big" onClick={() => (speaking ? stopSpeech() : read(i))} aria-label={speaking ? 'Arrêter la lecture' : 'Lire l’étape à voix haute'}>
@@ -110,12 +110,12 @@ export default function LessonStepper({ lesson, onClose }) {
           </button>
         )}
         {i < last ? (
-          <button className="btn btn-primary btn-big stepper-next" onClick={() => go(i + 1)}>Suivant →</button>
+          <button className="btn btn-primary btn-big lstep-next" onClick={() => go(i + 1)}>Suivant →</button>
         ) : (
-          <button className="btn btn-primary btn-big stepper-next" onClick={onClose}>Objectifs ✓</button>
+          <button className="btn btn-primary btn-big lstep-next" onClick={onClose}>Objectifs ✓</button>
         )}
       </div>
-      <div className="stepper-options">
+      <div className="lstep-options">
         {canSpeak() && (
           <label className="field-inline">
             <input type="checkbox" checked={autoRead} onChange={(e) => setAutoRead(e.target.checked)} />

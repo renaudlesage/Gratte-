@@ -7,6 +7,7 @@ import { useSettings } from '../lib/settings.jsx'
 import { useOnsets } from '../lib/useOnsets.js'
 import { scoreRhythm } from '../lib/onset.js'
 import BpmControl from './BpmControl.jsx'
+import Stuck from './Stuck.jsx'
 import ChordSelect from './ChordSelect.jsx'
 
 const COUNT_LABELS = ['1', 'et', '2', 'et', '3', 'et', '4', 'et']
@@ -210,6 +211,7 @@ export default function Strumming({ params = {} }) {
         </div>
       )}
       {mic.error && <p className="error small" role="alert">{mic.error}</p>}
+      {!running && <Stuck context={{ pattern: patternId, chords: [chordId] }} />}
 
       <BpmControl bpm={bpm} setBpm={setBpm} min={40} max={160} tap={false} />
 

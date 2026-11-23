@@ -1,3 +1,4 @@
+import Stuck from './Stuck.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { TABS } from '../data/tabs.js'
 import { Clock, pluck, strum, midiToFreq, OPEN_MIDI } from '../lib/audio.js'
@@ -67,7 +68,12 @@ export default function Partitions({ params = {} }) {
       </div>
     )
   }
-  return <TabPlayer params={params} allTabs={tabs} scores={list} student={mode === 'eleve'} />
+  return (
+    <>
+      <TabPlayer params={params} allTabs={tabs} scores={list} student={mode === 'eleve'} />
+      <Stuck context={{ topics: ['tab'] }} />
+    </>
+  )
 }
 
 function TabPlayer({ params = {}, allTabs, scores, student }) {

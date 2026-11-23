@@ -767,12 +767,23 @@ export function contextTags(context = {}) {
   return tags
 }
 
-// Symptômes triés : d'abord ceux qui correspondent à l'écran, dans l'ordre de la liste
+// Poids des étiquettes : une étiquette rare (barré, rythme, tablature) désigne mieux l'écran
+const TAG_WEIGHT = { barre: 3, rythme: 3, tab: 3, changement: 2, accord: 1 }
+
+// Symptômes triés : d'abord ceux qui correspondent à l'écran. La 1re étiquette d'un symptôme
+// est son sujet principal : elle compte d'abord, puis le nombre d'étiquettes communes.
 export function rankSymptoms(context = {}) {
   const tags = contextTags(context)
-  const score = (s) => s.tags.filter((t) => tags.has(t)).length
-  const scored = SYMPTOMS.map((s, i) => ({ s, i, n: score(s) }))
-  const forHere = scored.filter((x) => x.n > 0).sort((a, b) => b.n - a.n || a.i - b.i).map((x) => x.s)
+  const scored = SYMPTOMS.map((s, i) => ({
+    s,
+    i,
+    main: tags.has(s.tags[0]) ? TAG_WEIGHT[s.tags[0]] || 1 : 0,
+    n: s.tags.filter((t) => tags.has(t)).length,
+  }))
+  const forHere = scored
+    .filter((x) => x.n > 0)
+    .sort((a, b) => b.main - a.main || b.n - a.n || a.i - b.i)
+    .map((x) => x.s)
   const others = scored.filter((x) => x.n === 0).map((x) => x.s)
   return { forHere, others }
 }

@@ -19,6 +19,8 @@ import Tabs from './components/Tabs.jsx'
 import Progress from './components/Progress.jsx'
 import Recorder from './components/Recorder.jsx'
 import ChordRecall from './components/ChordRecall.jsx'
+import Glossary from './components/Glossary.jsx'
+import { NavContext } from './lib/nav.js'
 import { decodeSong } from './lib/share.js'
 import { AccessProvider, useAccess } from './lib/access.jsx'
 import { StudentHome } from './components/Account.jsx'
@@ -67,7 +69,7 @@ const PRACTICE = [
 ]
 
 // Onglets visibles selon les activations (mode élève) : voir lib/navAccess.js
-const TOOLS = [['accordeur', 'Accordeur'], ['metronome', 'Métronome'], ['enregistrer', 'Enregistrer']]
+const TOOLS = [['accordeur', 'Accordeur'], ['metronome', 'Métronome'], ['enregistrer', 'Enregistrer'], ['lexique', 'Lexique']]
 
 function Practice({ params }) {
   const a = useAccess()
@@ -107,6 +109,7 @@ function Tools({ params }) {
       {tool === 'accordeur' && <Tuner />}
       {tool === 'metronome' && <Metronome />}
       {tool === 'enregistrer' && <Recorder />}
+      {tool === 'lexique' && <Glossary initialQuery={params.q || ''} />}
     </>
   )
 }
@@ -157,6 +160,7 @@ function Shell() {
   const { params } = route
 
   return (
+    <NavContext.Provider value={navigate}>
     <SettingsProvider>
       <ProgressProvider>
         <StudentSync />
@@ -211,5 +215,6 @@ function Shell() {
         </div>
       </ProgressProvider>
     </SettingsProvider>
+    </NavContext.Provider>
   )
 }

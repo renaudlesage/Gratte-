@@ -3,6 +3,7 @@ import { getChord, SUGGESTED_PAIRS } from '../data/chords.js'
 import { useProgress, pairKey } from '../lib/progress.jsx'
 import { getCtx, click, strum } from '../lib/audio.js'
 import ChordDiagram from './ChordDiagram.jsx'
+import Stuck from './Stuck.jsx'
 import ChordSelect from './ChordSelect.jsx'
 import { pickBetween, diagnose } from '../lib/chordDetect.js'
 import { STRING_NAMES } from '../lib/audio.js'
@@ -274,6 +275,7 @@ export default function MinuteChallenge({ params = {} }) {
           <button className="btn btn-primary" onClick={() => start()}>Recommencer</button>
         </div>
       )}
+      {(phase === 'idle' || phase === 'done') && <Stuck context={{ chords: [a, b] }} />}
     </div>
   )
 }

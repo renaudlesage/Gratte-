@@ -4,13 +4,16 @@ import { chordText } from '../lib/chordText.js'
 import { useSettings } from '../lib/settings.jsx'
 import GlossaryText from './GlossaryText.jsx'
 import './help.css'
+import { useNavigate } from '../lib/nav.js'
 
 const LEVELS = ['Une piste', 'La consigne', 'Exemple guidé']
 
 // Bouton « Ça coince ? » + panneau de diagnostic : symptôme → questions → indices un à un
 // → action dans l'appli → « Ça marche mieux ? ».
 // Props : navigate(tab, params) ; context { chords?: string[], pattern?: string, symptom?: string, topics?: string[] }
-export default function Stuck({ navigate, context = {} }) {
+export default function Stuck({ navigate: navProp, context = {} }) {
+  const navCtx = useNavigate()
+  const navigate = navProp || navCtx
   const settings = useSettings()
   const T = (s) => chordText(s, settings?.label)
   const dlg = useRef(null)

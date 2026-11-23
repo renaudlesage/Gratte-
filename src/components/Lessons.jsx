@@ -7,6 +7,9 @@ import ChordDiagram from './ChordDiagram.jsx'
 import ChordCheck from './ChordCheck.jsx'
 import LessonStepper from './LessonStepper.jsx'
 import RecallWarmup from './RecallWarmup.jsx'
+import GlossaryText from './GlossaryText.jsx'
+import Stuck from './Stuck.jsx'
+import { glossaryExcludes } from '../data/glossary.js'
 import { useAccess } from '../lib/access.jsx'
 import { useSettings } from '../lib/settings.jsx'
 import { taskProof, PROOF_LABEL } from '../lib/evidence.js'
@@ -58,9 +61,9 @@ export default function Lessons({ params = {}, navigate }) {
             {isOpen && (
               <div className="lesson-body">
                 {!warmed[l.id] && prevChords.length > 0 && (
-                  <RecallWarmup key={l.id} chords={prevChords} onDone={() => setWarmed((w) => ({ ...w, [l.id]: true }))} />
+                  <RecallWarmup key={"warm-" + l.id} chords={prevChords} onDone={() => setWarmed((w) => ({ ...w, [l.id]: true }))} />
                 )}
-                <p className="lesson-intro">{T(l.intro)}</p>
+                {stepper !== l.id && <p className="lesson-intro">{T(l.intro)}</p>}
                 {l.chords.length > 0 && (
                   <div className="lesson-chords">
                     {l.chords.map((id) => {
@@ -80,11 +83,15 @@ export default function Lessons({ params = {}, navigate }) {
                   <LessonStepper lesson={l} onClose={() => setStepper(null)} />
                 ) : (
                   <>
-                    <button className="btn stepper-launch" onClick={() => setStepper(l.id)}>
+                    <button className="btn lstep-launch" onClick={() => setStepper(l.id)}>
                       ▶ Pas à pas, mains libres (lu à voix haute)
                     </button>
                     <ol className="lesson-steps">
-                      {l.steps.map((s, k) => <li key={k}>{T(s)}</li>)}
+                      {(() => {
+                        const texts = [l.intro, ...l.steps].map(T)
+                        const ex = glossaryExcludes(texts)
+                        return texts.slice(1).map((s, k) => <li key={k}><GlossaryText text={s} exclude={ex[k + 1]} /></li>)
+                      })()}
                     </ol>
                   </>
                 )}
@@ -112,6 +119,7 @@ export default function Lessons({ params = {}, navigate }) {
                     )
                   })}
                 </ul>
+                <Stuck navigate={navigate} context={{ chords: l.chords, topics: l.parcours === 2 && /tablature/i.test(l.title) ? ['tab'] : undefined }} />
                 {actions.length > 0 && (
                   <div className="row wrap gap">
                     {actions.map((a) => (

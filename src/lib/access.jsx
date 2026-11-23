@@ -36,6 +36,7 @@ export const SECTIONS = [
   ['outils.accordeur', 'Accordeur'],
   ['outils.metronome', 'Métronome'],
   ['outils.enregistrer', 'Enregistreur'],
+  ['outils.lexique', 'Lexique des mots de la guitare'],
 ]
 
 const AccessContext = createContext(null)

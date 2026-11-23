@@ -1,15 +1,15 @@
 /* Leçon pas à pas, mains libres */
-.stepper { background: var(--card); border: 1px solid var(--accent); border-radius: var(--radius); padding: 14px; margin: 12px 0; }
-.stepper-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.stepper-count { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
-.stepper-dots { display: flex; gap: 6px; margin: 10px 0; }
-.stepper-dots span { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
-.stepper-dots span.past { background: var(--muted); }
-.stepper-dots span.on { background: var(--accent); }
-.stepper-text { font-size: clamp(1.2rem, 5vw, 1.6rem); line-height: 1.45; margin: 8px 0 12px; min-height: 5.5em; outline: none; }
-.stepper-chords { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-.stepper-nav { display: flex; gap: 8px; }
-.stepper-nav .btn { min-width: 64px; min-height: 64px; font-size: 1.3rem; }
-.stepper-nav .stepper-next { flex: 1; }
-.stepper-options { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
-.stepper-launch { margin: 6px 0 12px; }
+.lstep { background: var(--card); border: 1px solid var(--accent); border-radius: var(--radius); padding: 14px; margin: 12px 0; }
+.lstep-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.lstep-count { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.lstep-dots { display: flex; gap: 6px; margin: 10px 0; }
+.lstep-dots span { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
+.lstep-dots span.past { background: var(--muted); }
+.lstep-dots span.on { background: var(--accent); }
+.lstep-text { font-size: clamp(1.2rem, 5vw, 1.6rem); line-height: 1.45; margin: 8px 0 12px; min-height: 5.5em; outline: none; }
+.lstep-chords { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.lstep-nav { display: flex; gap: 8px; }
+.lstep-nav .btn { flex: none; width: 64px; height: 64px; min-height: 64px; padding: 0; border-radius: var(--radius); font-size: 1.3rem; }
+.lstep-nav .btn.lstep-next { flex: 1; width: auto; padding: 0 16px; font-size: 1.15rem; white-space: nowrap; }
+.lstep-options { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.lstep-launch { margin: 6px 0 12px; }

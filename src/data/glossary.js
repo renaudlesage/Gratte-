@@ -30,8 +30,8 @@ export const GLOSSARY = [
     term: 'case',
     forms: ['case', 'cases'],
     tier: 1,
-    def: 'L’espace entre deux frettes sur le manche ; « case 2 » veut dire la 2e en partant de la tête de la guitare.',
-    ex: 'Comme les cases d’une marelle : on compte à partir du bout du manche.',
+    def: 'L’espace du manche où l’on appuie, entre deux frettes ; « case 2 » veut dire la 2e en partant de la tête de la guitare.',
+    ex: 'Comme les cases d’une marelle : on les compte depuis la tête, là où sont les mécaniques.',
   },
   {
     id: 'a-vide',
