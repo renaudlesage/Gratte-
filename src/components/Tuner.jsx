@@ -4,6 +4,9 @@ import { getCtx, freqToMidi, midiToFreq, NOTE_FR, NOTE_EN, playNote } from '../l
 import { TUNINGS, TUNING_IDS } from '../data/tunings.js'
 import { useProgress } from '../lib/progress.jsx'
 import { useSettings } from '../lib/settings.jsx'
+import { micErrorMessage, micUnavailableMessage } from '../lib/micError.js'
+
+const REF_HINT = ' En attendant, les notes de référence ci-dessous fonctionnent sans micro.'
 
 export default function Tuner() {
   const [listening, setListening] = useState(false)
@@ -14,6 +17,7 @@ export default function Tuner() {
   const historyRef = useRef([])
   const { markPracticed, logActivity } = useProgress()
   const tunedLogged = useRef(false)
+  const refsRef = useRef(null)
   const { notation, tuning, update } = useSettings()
   const tuningId = TUNINGS[tuning] ? tuning : 'standard'
   const OPEN = TUNINGS[tuningId].notes
@@ -30,10 +34,19 @@ export default function Tuner() {
 
   useEffect(() => stop, [])
 
+  // Échec du micro : on amène les notes de référence à l'écran
+  const fail = (msg) => {
+    setError(msg + REF_HINT)
+    requestAnimationFrame(() => {
+      const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      refsRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' })
+    })
+  }
+
   const start = async () => {
     setError('')
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError("Ce navigateur ne donne pas accès au micro. Essayez Chrome, Safari ou Firefox, en HTTPS.")
+      fail(micUnavailableMessage())
       return
     }
     try {
@@ -81,11 +94,7 @@ export default function Tuner() {
       }
       rafRef.current = requestAnimationFrame(loop)
     } catch (e) {
-      setError(
-        e?.name === 'NotAllowedError'
-          ? "Le micro est refusé ou indisponible ici. Autorisez-le pour ce site dans le navigateur (en HTTPS). En attendant, les notes de référence ci-dessous fonctionnent sans micro."
-          : "Impossible d'ouvrir le micro : " + (e?.message || e),
-      )
+      fail(micErrorMessage(e))
     }
   }
 
@@ -147,9 +156,9 @@ export default function Tuner() {
       ) : (
         <button className="btn btn-primary" onClick={start}>🎤 Démarrer l’accordeur</button>
       )}
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
 
-      <h3 className="section-title">Notes de référence</h3>
+      <h3 className="section-title" ref={refsRef} style={{ scrollMarginTop: 80 }}>Notes de référence</h3>
       <p className="muted small">Pas de micro ? Accordez à l’oreille : touchez une corde pour l’entendre.</p>
       <div className="ref-strings">
         {OPEN.map((m, i) => (

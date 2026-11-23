@@ -9,9 +9,9 @@ export default function SoundToggle() {
     strum([3, 2, 0, 0, 0, 3])
   }
   return (
-    <div className="sound-toggle" role="radiogroup" aria-label="Son de guitare">
+    <div className="sound-toggle" role="group" aria-label="Son de guitare">
       {VOICES.map(([id, label]) => (
-        <button key={id} role="radio" aria-checked={voice === id} className={voice === id ? 'on' : ''} onClick={() => choose(id)}>
+        <button key={id} type="button" aria-pressed={voice === id} className={voice === id ? 'on' : ''} onClick={() => choose(id)}>
           {label}
         </button>
       ))}

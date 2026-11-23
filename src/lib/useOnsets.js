@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getCtx } from './audio.js'
 import { createOnsetDetector } from './onset.js'
+import { micErrorMessage, micUnavailableMessage } from './micError.js'
 
 // Code du processeur audio : le détecteur est injecté comme expression (résiste à la minification)
 const WORKLET = `
@@ -44,7 +45,7 @@ export function useOnsets(onOnsets) {
   const start = useCallback(async () => {
     setError('')
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError("Ce navigateur ne donne pas accès au micro. Ouvrez l'appli en HTTPS.")
+      setError(micUnavailableMessage())
       return false
     }
     try {
@@ -82,11 +83,7 @@ export function useOnsets(onOnsets) {
       setListening(true)
       return true
     } catch (e) {
-      setError(
-        e?.name === 'NotAllowedError'
-          ? 'Le micro est refusé ou indisponible ici. Autorisez-le pour ce site (en HTTPS).'
-          : "Impossible d'ouvrir le micro : " + (e?.message || e),
-      )
+      setError(micErrorMessage(e))
       return false
     }
   }, [])

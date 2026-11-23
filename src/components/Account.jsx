@@ -3,6 +3,7 @@ import { useAccess, SECTIONS } from '../lib/access.jsx'
 import { LESSONS } from '../data/lessons.js'
 import { TABS } from '../data/tabs.js'
 import { SONGS } from '../data/songs.js'
+import Coach from './Coach.jsx'
 
 // Rejoindre une classe (élève) : code de classe + prénom + code secret à 4 chiffres
 export function JoinClass({ compact }) {
@@ -85,6 +86,7 @@ export function StudentHome({ navigate }) {
         <h1>Bonjour {student.prenom} !</h1>
         <p className="muted">Classe : <strong>{student.classe}</strong></p>
       </section>
+      <Coach navigate={navigate} />
       {error && <p className="error">{error}</p>}
       {empty && <p className="muted">Ton prof n’a encore rien activé. Les leçons et les morceaux apparaîtront ici au fur et à mesure.</p>}
       {lessons.length > 0 && (

@@ -3,6 +3,8 @@ import { LESSONS } from '../data/lessons.js'
 import { EMPTY, normalizeState } from './merge.js'
 import { useSync } from './sync.js'
 import { kvSet } from './reminder.js'
+import { lessonMet } from './evidence.js'
+import { pairKey } from './pairKey.js'
 
 const KEY = 'gratte.progress.v1'
 
@@ -17,7 +19,7 @@ function load() {
 
 const fmt = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
 export const today = () => fmt(new Date())
-export const pairKey = (a, b) => [a, b].sort().join('|')
+export { pairKey }
 
 const withDay = (s, d) => (s.days.includes(d) ? s.days : [...s.days, d].slice(-400))
 
@@ -105,7 +107,7 @@ export function ProgressProvider({ children }) {
   const reset = useCallback(() => setState(EMPTY), [])
 
   const value = useMemo(() => {
-    const lessonDone = (l) => l.tasks.every((t) => state.tasks[t.id])
+    const lessonDone = (l) => lessonMet(l, state)
     const doneCount = LESSONS.filter(lessonDone).length
     const nextLesson = LESSONS.find((l) => !lessonDone(l)) || null
     const d = today()

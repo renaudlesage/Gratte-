@@ -4,7 +4,8 @@ import { useProgress, pairKey } from '../lib/progress.jsx'
 import { getCtx, click, strum } from '../lib/audio.js'
 import ChordDiagram from './ChordDiagram.jsx'
 import ChordSelect from './ChordSelect.jsx'
-import { pickBetween } from '../lib/chordDetect.js'
+import { pickBetween, diagnose } from '../lib/chordDetect.js'
+import { STRING_NAMES } from '../lib/audio.js'
 import { useChordListener, PLAYING_RMS } from '../lib/useChordListener.js'
 import { useSettings } from '../lib/settings.jsx'
 
@@ -22,6 +23,9 @@ export default function MinuteChallenge({ params = {} }) {
   const { bests, recordChallenge } = useProgress()
   const { label } = useSettings()
   const [autoMic, setAutoMic] = useState(false)
+  const [selfCount, setSelfCount] = useState(false) // compter à voix haute, saisir le total à la fin
+  const [typed, setTyped] = useState('')
+  const quality = useRef({}) // accord → { n, dirty, strings: { corde: fois } }
   const [heard, setHeard] = useState(null)
   const phaseRef = useRef(phase)
   phaseRef.current = phase
@@ -42,6 +46,12 @@ export default function MinuteChallenge({ params = {} }) {
       if (phaseRef.current === 'running' && d.last && d.last !== id) {
         countRef.current += 1
         setCount(countRef.current)
+        // Netteté de l'accord atteint : cordes qui ne sonnent pas
+        const { silent } = diagnose(analysis, getChord(id))
+        const q = (quality.current[id] ||= { n: 0, dirty: 0, strings: {} })
+        q.n++
+        if (silent.length) q.dirty++
+        for (const st of silent) q.strings[st] = (q.strings[st] || 0) + 1
       }
       d.last = id
     }
@@ -64,16 +74,33 @@ export default function MinuteChallenge({ params = {} }) {
     const c = getCtx()
     click(c.currentTime + 0.01, true)
     click(c.currentTime + 0.15, true)
+    if (selfCountRef.current) {
+      setTyped('')
+      setPhase('enter')
+      return
+    }
     setPhase('done')
     setRecord(recordChallenge(a, b, countRef.current))
   }, [a, b, recordChallenge, mic.stop])
 
-  const start = async () => {
-    if (autoMic && !mic.listening) {
+  const selfCountRef = useRef(false)
+  selfCountRef.current = selfCount && !autoMic
+  const submitTyped = (e) => {
+    e.preventDefault()
+    const n = Math.max(0, Math.min(200, parseInt(typed, 10) || 0))
+    countRef.current = n
+    setCount(n)
+    setPhase('done')
+    setRecord(recordChallenge(a, b, n))
+  }
+
+  const start = async (useMic = autoMic) => {
+    if (useMic && !mic.listening) {
       const ok = await mic.start()
       if (!ok) return
     }
     det.current = { last: null, cand: null, n: 0 }
+    quality.current = {}
     setHeard(null)
     countRef.current = 0
     setCount(0)
@@ -129,12 +156,21 @@ export default function MinuteChallenge({ params = {} }) {
   const ca = getChord(a)
   const cb = getChord(b)
   const showB = phase === 'running' && count % 2 === 1
+  // Micro indisponible avec le comptage automatique : on propose de continuer au doigt
+  const micFailed = mic.error && autoMic && (
+    <div className="center-col">
+      <p className="error small center" role="alert">{mic.error}</p>
+      <button className="btn small" onClick={() => { setAutoMic(false); start(false) }} disabled={a === b}>Lancer sans micro</button>
+    </div>
+  )
 
   return (
     <div className="challenge">
-      <p className="muted">
-        Enchaînez les deux accords pendant 60 secondes et touchez le gros bouton (ou la barre d’espace) à chaque changement propre. C’est l’exercice le plus efficace pour progresser vite.
-      </p>
+      {(phase === 'idle' || phase === 'done') && (
+        <p className="muted">
+          Enchaînez les deux accords pendant 60 secondes et touchez le gros bouton (ou la barre d’espace) à chaque changement propre. C’est l’exercice le plus efficace pour progresser vite.
+        </p>
+      )}
 
       {phase === 'idle' || phase === 'done' ? (
         <>
@@ -169,8 +205,14 @@ export default function MinuteChallenge({ params = {} }) {
             <input type="checkbox" checked={autoMic} onChange={(e) => setAutoMic(e.target.checked)} />
             Comptage automatique au micro
           </label>
-          {mic.error && <p className="error small">{mic.error}</p>}
-          <button className="btn btn-primary btn-big" onClick={start} disabled={a === b}>Lancer le défi</button>
+          {!autoMic && (
+            <label className="field-inline">
+              <input type="checkbox" checked={selfCount} onChange={(e) => setSelfCount(e.target.checked)} />
+              Compter à voix haute, saisir le total à la fin (sans lâcher la guitare)
+            </label>
+          )}
+          {micFailed}
+          <button className="btn btn-primary btn-big" onClick={() => start()} disabled={a === b}>Lancer le défi</button>
         </div>
       )}
 
@@ -181,10 +223,18 @@ export default function MinuteChallenge({ params = {} }) {
           <div className="timer">{left}s</div>
           <button className="tap-zone" onClick={inc}>
             <strong>{count}</strong>
-            <span>{mic.listening ? `🎤 J’entends : ${heard ? label(heard) : '…'}` : 'Touchez à chaque changement'}</span>
+            <span>{mic.listening ? `🎤 J’entends : ${heard ? label(heard) : '…'}` : selfCountRef.current ? 'Comptez à voix haute : un changement propre = un de plus' : 'Touchez à chaque changement'}</span>
           </button>
           <button className="btn btn-ghost small" onClick={cancel}>Annuler</button>
         </div>
+      )}
+
+      {phase === 'enter' && (
+        <form className="center-col" onSubmit={submitTyped}>
+          <label htmlFor="mc-total"><strong>Combien de changements propres ?</strong></label>
+          <input id="mc-total" type="number" inputMode="numeric" min="0" max="200" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus className="big-number" />
+          <button className="btn btn-primary btn-big" type="submit">Enregistrer</button>
+        </form>
       )}
 
       {phase === 'done' && (
@@ -195,8 +245,33 @@ export default function MinuteChallenge({ params = {} }) {
           <p className="muted small">
             {count < 20 ? 'Ralentissez et visez la propreté : la vitesse viendra toute seule.' : count < 40 ? 'Bien ! Refaites le défi demain, le cerveau consolide pendant la nuit.' : 'Excellent, ce changement est presque automatique. Passez à une autre paire.'}
           </p>
-          <button className="btn btn-primary" onClick={start}>Recommencer</button>
+          <Quality q={quality.current} label={label} />
+          {micFailed}
+          <button className="btn btn-primary" onClick={() => start()}>Recommencer</button>
         </div>
+      )}
+    </div>
+  )
+}
+
+// Bilan du comptage au micro : changements nets ou approximatifs, et la corde qui pose problème
+function Quality({ q, label }) {
+  const ids = Object.keys(q)
+  if (!ids.length) return null
+  const n = ids.reduce((s, id) => s + q[id].n, 0)
+  const dirty = ids.reduce((s, id) => s + q[id].dirty, 0)
+  const worst = ids
+    .flatMap((id) => Object.entries(q[id].strings).map(([st, k]) => ({ id, st: +st, k })))
+    .sort((x, y) => y.k - x.k)[0]
+  return (
+    <div className="quality">
+      <p className="small">
+        <strong>{n - dirty}</strong> changement{n - dirty > 1 ? 's' : ''} net{n - dirty > 1 ? 's' : ''} · <strong>{dirty}</strong> approximatif{dirty > 1 ? 's' : ''}
+      </p>
+      {worst && worst.k >= 2 && (
+        <p className="muted small">
+          {label(worst.id)} arrive souvent incomplet : corde de {STRING_NAMES[worst.st]} ({6 - worst.st}) muette {worst.k} fois. Vérifiez-le au calme avec « Vérifier mon accord ».
+        </p>
       )}
     </div>
   )

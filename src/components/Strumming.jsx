@@ -95,7 +95,8 @@ export default function Strumming({ params = {} }) {
     const res = scoreRhythm(ev.current.expected, ev.current.onsets, 60 / r.bpm / 2)
     const record = recordBest(`rythme:${r.pattern.id}`, res.score)
     logActivity('rhythmscore', r.pattern.id, res.score)
-    if (res.score >= 70) recordRhythm(r.pattern.id, r.bpm)
+    // Le tempo n'est « acquis » qu'après une évaluation réussie (≥ 80 % des coups dans le temps)
+    if (res.score >= 80) recordRhythm(r.pattern.id, r.bpm)
     setEvalState({ phase: 'done', res, record })
   }
 
@@ -105,10 +106,8 @@ export default function Strumming({ params = {} }) {
     setRunning(false)
     setSlot(-1)
     if (evalMode) setEvalState({ phase: 'idle' })
-    if (!evalMode && Date.now() - startedAt.current > 20000) {
-      recordRhythm(patternId, bpm)
-      logActivity('rhythm', patternId, bpm)
-    }
+    // En jeu libre on note la pratique, sans valider le tempo (seule l'évaluation au micro le fait)
+    if (!evalMode && Date.now() - startedAt.current > 20000) logActivity('rhythm', patternId, bpm)
   }
 
   const toggle = async () => {
@@ -193,6 +192,7 @@ export default function Strumming({ params = {} }) {
           <div className="result-num">{res.score}%</div>
           <div>des coups dans le temps</div>
           {evalState.record && <p className="record">🏆 Meilleur score sur ce rythme !</p>}
+          <p className="small">{res.score >= 80 ? `✓ Tempo validé : ${bpm} BPM sur ce rythme.` : 'Le tempo est validé à partir de 80 % des coups dans le temps.'}</p>
           <p className="small">
             Régularité : écart type {res.sdMs} ms · tendance {res.meanMs > 0 ? `${res.meanMs} ms en retard` : res.meanMs < 0 ? `${-res.meanMs} ms en avance` : 'pile à l’heure'}
             {res.missed ? ` · ${res.missed} coup${res.missed > 1 ? 's' : ''} manqué${res.missed > 1 ? 's' : ''}` : ''}
@@ -209,7 +209,7 @@ export default function Strumming({ params = {} }) {
           <p className="muted small">Record sur ce rythme : {bests[`rythme:${pattern.id}`] || res.score}%</p>
         </div>
       )}
-      {mic.error && <p className="error small">{mic.error}</p>}
+      {mic.error && <p className="error small" role="alert">{mic.error}</p>}
 
       <BpmControl bpm={bpm} setBpm={setBpm} min={40} max={160} tap={false} />
 
@@ -312,7 +312,7 @@ function Calibration({ onDone }) {
           )}
         </div>
       )}
-      {mic.error && <p className="error small">{mic.error}</p>}
+      {mic.error && <p className="error small" role="alert">{mic.error}</p>}
       <button className="btn btn-ghost small" onClick={() => { clock.stop(); mic.stop(); onDone(null) }}>Annuler</button>
     </div>
   )

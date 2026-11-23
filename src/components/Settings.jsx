@@ -9,9 +9,9 @@ import { buildIcs, notificationsSupported, enableNotifications, disableNotificat
 
 function Segmented({ value, options, onChange, name }) {
   return (
-    <div className="segmented" role="radiogroup" aria-label={name}>
+    <div className="segmented" role="group" aria-label={name}>
       {options.map(([id, label]) => (
-        <button key={String(id)} role="radio" aria-checked={value === id} className={value === id ? 'on' : ''} onClick={() => onChange(id)}>
+        <button key={String(id)} type="button" aria-pressed={value === id} className={value === id ? 'on' : ''} onClick={() => onChange(id)}>
           {label}
         </button>
       ))}
@@ -244,7 +244,7 @@ function SyncSection({ sync }) {
             <br />
             {sync.status === 'syncing' && 'Synchronisation…'}
             {sync.status === 'ok' && sync.lastSync && `✓ Synchronisé à ${sync.lastSync.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })}`}
-            {sync.status === 'error' && <span className="error">Échec : {sync.error}</span>}
+            {sync.status === 'error' && <span className="error" role="alert">Échec : {sync.error}</span>}
           </p>
           <div className="row gap wrap">
             <button className="btn small" onClick={sync.syncNow} disabled={sync.status === 'syncing'}>Synchroniser maintenant</button>
