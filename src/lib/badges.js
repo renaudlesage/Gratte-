@@ -1,5 +1,6 @@
 // Badges : calculés à partir de la progression (rien n'est stocké en plus)
 import { LESSONS } from '../data/lessons.js'
+import { lessonMet, taskProof } from './evidence.js'
 
 const fmt = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
 
@@ -21,15 +22,27 @@ export function maxStreak(days) {
   return best
 }
 
+// Plus grand nombre de jours de pratique dans une fenêtre glissante de n jours
+export function bestWindow(days, n) {
+  const ts = [...new Set(days)].map((d) => new Date(d + 'T12:00:00').getTime()).sort((a, b) => a - b)
+  let best = 0
+  let i = 0
+  for (let j = 0; j < ts.length; j++) {
+    while (ts[j] - ts[i] >= n * 86400000) i++
+    best = Math.max(best, j - i + 1)
+  }
+  return best
+}
+
 export function computeBadges(p) {
-  const { days, activity, bests, rhythm, tasks, songs } = p
+  const { days, activity, bests, rhythm, songs } = p
   const has = (type, pred = () => true) => activity.some((a) => a.type === type && pred(a))
   const pairBest = Math.max(0, ...Object.entries(bests).filter(([k]) => k.includes('|')).map(([, v]) => v))
   const rhythmScore = Math.max(0, ...Object.entries(bests).filter(([k]) => k.startsWith('rythme:')).map(([, v]) => v))
   const earBest = Math.max(0, ...Object.entries(bests).filter(([k]) => k.startsWith('ear:')).map(([, v]) => v))
   const done = (id) => {
     const l = LESSONS.find((x) => x.id === id)
-    return l ? l.tasks.every((t) => tasks[t.id]) : false
+    return l ? lessonMet(l, p) : false
   }
   const pathDone = (n) => LESSONS.filter((l) => (l.parcours || 1) === n).every((l) => done(l.id))
   const streak = maxStreak(days)
@@ -40,13 +53,15 @@ export function computeBadges(p) {
     B('verifie', '🎤', 'Validé au micro', 'Un accord reconnu par la vérification au micro', has('check')),
     B('serie-3', '🔥', 'Sur la lancée', '3 jours de pratique d’affilée', streak >= 3),
     B('serie-7', '📅', 'Une semaine complète', '7 jours d’affilée', streak >= 7),
-    B('serie-30', '🏅', 'Habitude installée', '30 jours d’affilée', streak >= 30),
+    B('serie-30', '🏅', 'Habitude installée', '20 jours de pratique sur 30', bestWindow(days, 30) >= 20),
     B('defi-30', '⚡', 'Changements fluides', '30 changements en une minute', pairBest >= 30),
     B('defi-60', '🚀', 'Automatisme', '60 changements en une minute', pairBest >= 60),
     B('rythme-90', '🥁', 'Métronome humain', '90 % des coups dans le temps à l’évaluation', rhythmScore >= 90),
     B('tempo-100', '⏱️', 'Cent à l’heure', 'Un rythme tenu à 100 BPM', Math.max(0, ...Object.values(rhythm)) >= 100),
-    B('oreille-10', '👂', 'Oreille absolue', 'Série de 10 bonnes réponses au jeu d’oreille', earBest >= 10),
+    B('oreille-10', '👂', 'Bonne oreille', 'Série de 10 bonnes réponses au jeu d’oreille', earBest >= 10),
     B('barre', '💪', 'Le cap du barré', 'Fa ou Si mineur reconnu au micro', has('check', (a) => ['F', 'Bm', 'F#m', 'B'].includes(a.key)) || done('l10')),
+    B('micro-5', '✅', 'Cinq accords validés', '5 accords différents reconnus au micro', new Set(activity.filter((a) => a.type === 'check').map((a) => a.key)).size >= 5),
+    B('objectifs-10', '🎯', 'Preuves à l’appui', '10 objectifs de leçon validés par l’appli', LESSONS.flatMap((l) => l.tasks).filter((t) => taskProof(t, p)).length >= 10),
     B('chanson', '🎶', 'Première chanson', 'Une chanson jouée en entier avec la grille', has('song')),
     B('compositeur', '✍️', 'Ma grille', 'Créer sa propre grille d’accords', songs.some((s) => !s.deleted)),
     B('tab', '📜', 'Lecteur de tablature', 'Une tablature jouée', has('tab')),

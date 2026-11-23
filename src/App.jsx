@@ -16,13 +16,19 @@ import Tuner from './components/Tuner.jsx'
 import Metronome from './components/Metronome.jsx'
 import Settings from './components/Settings.jsx'
 import Tabs from './components/Tabs.jsx'
-import SoundToggle from './components/SoundToggle.jsx'
 import Progress from './components/Progress.jsx'
 import Recorder from './components/Recorder.jsx'
+import ChordRecall from './components/ChordRecall.jsx'
+import Glossary from './components/Glossary.jsx'
+import { NavContext } from './lib/nav.js'
 import { decodeSong } from './lib/share.js'
 import { AccessProvider, useAccess } from './lib/access.jsx'
 import { StudentHome } from './components/Account.jsx'
 import ProfPanel from './components/ProfPanel.jsx'
+import { SessionBar } from './components/Coach.jsx'
+import BadgeToast from './components/BadgeToast.jsx'
+import StudentSync from './components/StudentSync.jsx'
+import { navAllowed, practiceAllowed } from './lib/navAccess.js'
 
 const NAV = [
   ['accueil', 'Accueil', '⌂'],
@@ -59,21 +65,11 @@ const PRACTICE = [
   ['arpeges', 'Arpèges'],
   ['tabs', 'Partitions'],
   ['oreille', 'Oreille'],
+  ['rappel', 'Rappel'],
 ]
 
-// Onglets visibles selon les activations (mode élève) ; partitions : dès qu'une tablature ou une page est activée
-const practiceAllowed = (a, id) => (id === 'tabs' ? a.canAny('tab') || a.canAny('score') : a.can('pratique.' + id))
-const PRACTICE_IDS = PRACTICE.map((p) => p[0])
-const TOOLS = [['accordeur', 'Accordeur'], ['metronome', 'Métronome'], ['enregistrer', 'Enregistrer']]
-function navAllowed(a, id) {
-  if (id === 'lecons') return a.canAny('lecon')
-  if (id === 'accords') return a.can('accords')
-  if (id === 'pratique') return PRACTICE_IDS.some((p) => practiceAllowed(a, p))
-  if (id === 'chansons') return a.canAny('chanson')
-  if (id === 'outils') return TOOLS.some(([t]) => a.can('outils.' + t))
-  if (id === 'prof') return a.mode === 'prof' || a.mode === 'admin'
-  return true
-}
+// Onglets visibles selon les activations (mode élève) : voir lib/navAccess.js
+const TOOLS = [['accordeur', 'Accordeur'], ['metronome', 'Métronome'], ['enregistrer', 'Enregistrer'], ['lexique', 'Lexique']]
 
 function Practice({ params }) {
   const a = useAccess()
@@ -94,6 +90,7 @@ function Practice({ params }) {
       {mode === 'arpeges' && <Arpeggios params={own} />}
       {mode === 'tabs' && <TabPlayer params={own} />}
       {mode === 'oreille' && <EarTraining knownChords={knownChords(lessonDone)} />}
+      {mode === 'rappel' && <ChordRecall knownChords={knownChords(lessonDone)} />}
     </>
   )
 }
@@ -112,6 +109,7 @@ function Tools({ params }) {
       {tool === 'accordeur' && <Tuner />}
       {tool === 'metronome' && <Metronome />}
       {tool === 'enregistrer' && <Recorder />}
+      {tool === 'lexique' && <Glossary initialQuery={params.q || ''} />}
     </>
   )
 }
@@ -162,32 +160,37 @@ function Shell() {
   const { params } = route
 
   return (
+    <NavContext.Provider value={navigate}>
     <SettingsProvider>
       <ProgressProvider>
+        <StudentSync />
         <div className="app">
           <header className="topbar">
             <button className="brand" onClick={() => navigate('accueil')}>
-              <span className="brand-mark">◐</span> Gratte
+              <span className="brand-mark" aria-hidden="true">◐</span> Gratte
             </button>
-            <nav className="nav-desktop">
+            <nav className="nav-desktop" aria-label="Navigation principale">
               {nav.map(([id, label]) => (
-                <button key={id} className={tab === id ? 'on' : ''} onClick={() => navigate(id)}>{label}</button>
+                <button key={id} className={tab === id ? 'on' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => navigate(id)}>{label}</button>
               ))}
             </nav>
             <div className="topbar-right">
               {access.mode === 'eleve' && <span className="role-chip" title={access.student.classe}>🎒 {access.student.prenom}</span>}
               {(access.mode === 'prof' || access.mode === 'admin') && (
-                <button className={`icon-btn${tab === 'prof' ? ' on' : ''}`} onClick={() => navigate('prof')} aria-label="Espace prof" title="Espace prof">🎓</button>
+                <button className={`icon-btn${tab === 'prof' ? ' on' : ''}`} onClick={() => navigate('prof')} aria-label="Espace prof" title="Espace prof" aria-current={tab === 'prof' ? 'page' : undefined}>🎓</button>
               )}
-              <SoundToggle />
-              <button className={`icon-btn${tab === 'reglages' ? ' on' : ''}`} onClick={() => navigate('reglages')} aria-label="Réglages" title="Réglages">
+              <button className={`head-btn${tab === 'progres' ? ' on' : ''}`} onClick={() => navigate('progres')} title="Mes progrès" aria-current={tab === 'progres' ? 'page' : undefined}>
+                <span className="head-btn-icon" aria-hidden="true">📈</span> Progrès
+              </button>
+              <button className={`icon-btn${tab === 'reglages' ? ' on' : ''}`} onClick={() => navigate('reglages')} aria-label="Réglages" title="Réglages" aria-current={tab === 'reglages' ? 'page' : undefined}>
                 ⚙
               </button>
             </div>
           </header>
 
           <main className="content">
-            {TITLES[tab] && <h2 className="page-title">{TITLES[tab]}</h2>}
+            <SessionBar tab={tab} navigate={navigate} />
+            {TITLES[tab] && <h1 className="page-title">{TITLES[tab]}</h1>}
             {tab === 'accueil' && (access.mode === 'eleve' ? <StudentHome navigate={navigate} /> : <Home navigate={navigate} />)}
             {tab === 'prof' && <ProfPanel />}
             {tab === 'lecons' && <Lessons params={params} navigate={navigate} />}
@@ -199,10 +202,12 @@ function Shell() {
             {tab === 'progres' && <Progress />}
           </main>
 
-          <nav className="nav-mobile">
+          <BadgeToast navigate={navigate} />
+
+          <nav className="nav-mobile" aria-label="Navigation principale">
             {nav.map(([id, label, icon]) => (
-              <button key={id} className={tab === id ? 'on' : ''} onClick={() => navigate(id)}>
-                <span className="nav-icon">{icon}</span>
+              <button key={id} className={tab === id ? 'on' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => navigate(id)}>
+                <span className="nav-icon" aria-hidden="true">{icon}</span>
                 <span>{label}</span>
               </button>
             ))}
@@ -210,5 +215,6 @@ function Shell() {
         </div>
       </ProgressProvider>
     </SettingsProvider>
+    </NavContext.Provider>
   )
 }

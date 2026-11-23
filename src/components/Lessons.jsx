@@ -5,15 +5,30 @@ import { strum } from '../lib/audio.js'
 import { useProgress } from '../lib/progress.jsx'
 import ChordDiagram from './ChordDiagram.jsx'
 import ChordCheck from './ChordCheck.jsx'
+import LessonStepper from './LessonStepper.jsx'
+import RecallWarmup from './RecallWarmup.jsx'
+import GlossaryText from './GlossaryText.jsx'
+import Stuck from './Stuck.jsx'
+import { glossaryExcludes } from '../data/glossary.js'
 import { useAccess } from '../lib/access.jsx'
+import { useSettings } from '../lib/settings.jsx'
+import { taskProof, PROOF_LABEL } from '../lib/evidence.js'
+import { chordText } from '../lib/chordText.js'
+import { targetAllowed } from '../lib/navAccess.js'
 
 export default function Lessons({ params = {}, navigate }) {
-  const { tasks, toggleTask, lessonDone, nextLesson } = useProgress()
-  const { can } = useAccess()
+  const progress = useProgress()
+  const { tasks, toggleTask, lessonDone, nextLesson } = progress
+  const access = useAccess()
+  const { can } = access
+  const { label } = useSettings()
+  const T = (s) => chordText(s, label)
   // Élève : seulement les leçons activées par le prof (la numérotation reste celle du parcours)
   const shown = LESSONS.map((l, i) => ({ l, i })).filter(({ l }) => can('lecon:' + l.id))
   const [open, setOpen] = useState(params.id || (nextLesson && can('lecon:' + nextLesson.id) ? nextLesson.id : shown[0]?.l.id))
   const [checkId, setCheckId] = useState(null)
+  const [stepper, setStepper] = useState(null) // id de la leçon en mode pas à pas
+  const [warmed, setWarmed] = useState({}) // leçons dont l'échauffement de mémoire est fait ou passé
 
   useEffect(() => {
     if (params.id) setOpen(params.id)
@@ -24,8 +39,11 @@ export default function Lessons({ params = {}, navigate }) {
       {!shown.length && <p className="muted">Ton prof n’a pas encore activé de leçon.</p>}
       {shown.map(({ l, i }, k) => {
         const done = lessonDone(l)
-        const nDone = l.tasks.filter((t) => tasks[t.id]).length
+        const nDone = l.tasks.filter((t) => tasks[t.id] || taskProof(t, progress)).length
+        const actions = l.actions.filter((a) => targetAllowed(access, a.tab, a.params))
         const isOpen = open === l.id
+        // Accords des leçons précédentes du même parcours, à retrouver de mémoire avant la leçon (si elle n'est pas finie)
+        const prevChords = done ? [] : [...new Set(LESSONS.slice(0, i).filter((x) => (x.parcours || 1) === (l.parcours || 1)).flatMap((x) => x.chords))].filter((c) => !l.chords.includes(c))
         return (
           <div key={l.id} style={{ display: 'contents' }}>
           {(k === 0 || (shown[k - 1].l.parcours || 1) !== (l.parcours || 1)) && (
@@ -42,7 +60,10 @@ export default function Lessons({ params = {}, navigate }) {
             </button>
             {isOpen && (
               <div className="lesson-body">
-                <p className="lesson-intro">{l.intro}</p>
+                {!warmed[l.id] && prevChords.length > 0 && (
+                  <RecallWarmup key={"warm-" + l.id} chords={prevChords} onDone={() => setWarmed((w) => ({ ...w, [l.id]: true }))} />
+                )}
+                {stepper !== l.id && <p className="lesson-intro">{T(l.intro)}</p>}
                 {l.chords.length > 0 && (
                   <div className="lesson-chords">
                     {l.chords.map((id) => {
@@ -58,27 +79,56 @@ export default function Lessons({ params = {}, navigate }) {
                 {l.chords.length > 0 && (
                   <ChordCheck compact chord={getChord(checkId && l.chords.includes(checkId) ? checkId : l.chords[0])} key={l.id + (checkId || '')} />
                 )}
-                <ol className="lesson-steps">
-                  {l.steps.map((s, k) => <li key={k}>{s}</li>)}
-                </ol>
+                {stepper === l.id ? (
+                  <LessonStepper lesson={l} onClose={() => setStepper(null)} />
+                ) : (
+                  <>
+                    <button className="btn lstep-launch" onClick={() => setStepper(l.id)}>
+                      ▶ Pas à pas, mains libres (lu à voix haute)
+                    </button>
+                    <ol className="lesson-steps">
+                      {(() => {
+                        const texts = [l.intro, ...l.steps].map(T)
+                        const ex = glossaryExcludes(texts)
+                        return texts.slice(1).map((s, k) => <li key={k}><GlossaryText text={s} exclude={ex[k + 1]} /></li>)
+                      })()}
+                    </ol>
+                  </>
+                )}
                 <h4>Objectifs</h4>
                 <ul className="tasks">
-                  {l.tasks.map((t) => (
-                    <li key={t.id}>
-                      <label>
-                        <input type="checkbox" checked={!!tasks[t.id]} onChange={() => toggleTask(t.id)} />
-                        <span>{t.label}</span>
-                      </label>
-                    </li>
-                  ))}
+                  {l.tasks.map((t) => {
+                    const proof = taskProof(t, progress)
+                    const self = !!tasks[t.id]
+                    return (
+                      <li key={t.id} className={proof ? 'proved' : ''}>
+                        <label>
+                          <input type="checkbox" checked={proof || self} disabled={proof} onChange={() => toggleTask(t.id)} />
+                          <span>
+                            {T(t.label)}
+                            {proof ? (
+                              <small className="proof-tag ok">✓ {PROOF_LABEL[t.auto.type]}</small>
+                            ) : self ? (
+                              <small className="proof-tag">auto-évalué{t.auto ? ' · l’appli peut le valider' : ''}</small>
+                            ) : t.auto ? (
+                              <small className="proof-tag">se valide tout seul quand vous le réussissez dans l’appli</small>
+                            ) : null}
+                          </span>
+                        </label>
+                      </li>
+                    )
+                  })}
                 </ul>
-                <div className="row wrap gap">
-                  {l.actions.map((a) => (
-                    <button key={a.label} className="btn btn-primary" onClick={() => navigate(a.tab, a.params)}>
-                      {a.label} →
-                    </button>
-                  ))}
-                </div>
+                <Stuck navigate={navigate} context={{ chords: l.chords, topics: l.parcours === 2 && /tablature/i.test(l.title) ? ['tab'] : undefined }} />
+                {actions.length > 0 && (
+                  <div className="row wrap gap">
+                    {actions.map((a) => (
+                      <button key={a.label} className="btn btn-primary" onClick={() => navigate(a.tab, a.params)}>
+                        {T(a.label)} →
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </section>

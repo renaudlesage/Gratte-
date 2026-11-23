@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getCtx } from './audio.js'
 import { analyzeSpectrum } from './chordDetect.js'
+import { micErrorMessage, micUnavailableMessage } from './micError.js'
 
 const FFT = 16384
 
@@ -26,7 +27,7 @@ export function useChordListener(onFrame) {
   const start = useCallback(async () => {
     setError('')
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError("Ce navigateur ne donne pas accès au micro. Ouvrez l'appli en HTTPS dans Chrome, Safari ou Firefox.")
+      setError(micUnavailableMessage())
       return false
     }
     try {
@@ -55,11 +56,7 @@ export function useChordListener(onFrame) {
       setListening(true)
       return true
     } catch (e) {
-      setError(
-        e?.name === 'NotAllowedError'
-          ? "Le micro est refusé ou indisponible ici. Autorisez-le pour ce site dans le navigateur (en HTTPS)."
-          : "Impossible d'ouvrir le micro : " + (e?.message || e),
-      )
+      setError(micErrorMessage(e))
       return false
     }
   }, [])

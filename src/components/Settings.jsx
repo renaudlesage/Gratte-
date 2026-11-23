@@ -5,13 +5,14 @@ import { useProgress } from '../lib/progress.jsx'
 import { wakeLockSupported } from '../lib/useWakeLock.js'
 import { useAccess } from '../lib/access.jsx'
 import { JoinClass, LeaveClass } from './Account.jsx'
-import { buildIcs, notificationsSupported, enableNotifications, disableNotifications } from '../lib/reminder.js'
+import { buildIcs, notificationsSupported, enableNotifications, disableNotifications, CUES, intentionText, kvSet } from '../lib/reminder.js'
+import { useAddress } from '../lib/address.js'
 
 function Segmented({ value, options, onChange, name }) {
   return (
-    <div className="segmented" role="radiogroup" aria-label={name}>
+    <div className="segmented" role="group" aria-label={name}>
       {options.map(([id, label]) => (
-        <button key={String(id)} role="radio" aria-checked={value === id} className={value === id ? 'on' : ''} onClick={() => onChange(id)}>
+        <button key={String(id)} type="button" aria-pressed={value === id} className={value === id ? 'on' : ''} onClick={() => onChange(id)}>
           {label}
         </button>
       ))}
@@ -140,25 +141,50 @@ export default function Settings() {
   )
 }
 
+const pad2 = (n) => String(n).padStart(2, '0')
+
 function ReminderSection({ reminder, update }) {
-  const [time, setTime] = useState(reminder ? `${String(reminder.hour).padStart(2, '0')}:${String(reminder.minute).padStart(2, '0')}` : '19:00')
+  const t = useAddress()
+  const { days } = useProgress()
+  const [time, setTime] = useState(reminder ? `${pad2(reminder.hour)}:${pad2(reminder.minute)}` : '19:00')
+  const [cue, setCue] = useState(reminder?.cue || null)
   const [msg, setMsg] = useState('')
   const [ics, setIcs] = useState(null)
-  const parsed = () => {
-    const [h, m] = time.split(':').map(Number)
+  const parsed = (tm = time) => {
+    const [h, m] = tm.split(':').map(Number)
     return { hour: h || 0, minute: m || 0 }
   }
   useEffect(() => () => ics && URL.revokeObjectURL(ics), [ics])
 
+  // Intention de mise en œuvre : un moment précis de la journée → l'heure du rappel. Enregistré tout de suite.
+  const pickCue = (c) => {
+    const tm = c.hour === null ? time : `${pad2(c.hour)}:${pad2(c.minute)}`
+    setCue(c.id)
+    setTime(tm)
+    setIcs(null)
+    const r = { ...parsed(tm), cue: c.id, notify: reminder?.notify || false }
+    update({ reminder: r })
+    if (r.notify) kvSet('reminder', { ...r, enabled: true })
+  }
+  const changeTime = (v) => {
+    setTime(v)
+    setIcs(null)
+    if (cue) {
+      const r = { ...parsed(v), cue, notify: reminder?.notify || false }
+      update({ reminder: r })
+      if (r.notify) kvSet('reminder', { ...r, enabled: true })
+    }
+  }
+
   const makeIcs = () => {
-    const r = parsed()
+    const r = { ...parsed(), cue }
     update({ reminder: { ...r, notify: reminder?.notify || false } })
     const blob = new Blob([buildIcs(r, window.location.origin + '/')], { type: 'text/calendar' })
     setIcs(URL.createObjectURL(blob))
   }
 
   const toggleNotify = async () => {
-    const r = parsed()
+    const r = { ...parsed(), cue }
     if (reminder?.notify) {
       await disableNotifications()
       update({ reminder: { ...r, notify: false } })
@@ -170,15 +196,48 @@ function ReminderSection({ reminder, update }) {
     setMsg(res.msg)
   }
 
+  const plan = intentionText({ ...parsed(), cue })
+  // Suivi simple : combien de jours de pratique sur les 7 derniers
+  const week = (() => {
+    const d = new Date()
+    const keys = new Set()
+    for (let i = 0; i < 7; i++) {
+      keys.add(`${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`)
+      d.setDate(d.getDate() - 1)
+    }
+    return days.filter((x) => keys.has(x)).length
+  })()
+
   return (
     <section className="setting column">
       <div>
         <strong>Rappel quotidien</strong>
-        <small>Un petit rappel à l’heure de votre choix pour garder la régularité.</small>
+        <small>{t('Choisissez un moment qui revient chaque jour : la décision est prise d’avance, il n’y a plus qu’à suivre le plan.', 'Choisis un moment qui revient chaque jour : la décision est prise d’avance, il n’y a plus qu’à suivre le plan.')}</small>
+      </div>
+      <div className="intention">
+        <div role="group" aria-labelledby="intent-q">
+          <p className="srl-q" id="intent-q"><strong>Quand…</strong> <span className="muted small">je prends ma guitare</span></p>
+          <div className="srl-row">
+            {CUES.map((c) => (
+              <button key={c.id} type="button" className="srl-opt" aria-pressed={cue === c.id} onClick={() => pickCue(c)}>
+                {c.when}
+                {c.hour !== null && <small>{pad2(c.hour)}:{pad2(c.minute)}</small>}
+              </button>
+            ))}
+          </div>
+        </div>
+        {plan && (
+          <p className="intention-text" aria-live="polite">
+            <strong>{t('Votre plan', 'Ton plan')} : « {plan} »</strong>
+            <br />
+            <span className="small muted">Plan B : si le temps manque, je fais juste le défi minute (2 min). L’habitude compte plus que la durée.</span>
+          </p>
+        )}
+        {plan && <p className="small muted">{`Ces 7 derniers jours : ${week} jour${week > 1 ? 's' : ''} de pratique.`}{week < 3 ? t(' Si le moment choisi ne tient pas, essayez-en un autre.', ' Si le moment choisi ne tient pas, essaie-en un autre.') : ''}</p>}
       </div>
       <label className="field-inline">
-        Heure
-        <input id="reminder-time" className="input small-input" type="time" value={time} onChange={(e) => { setTime(e.target.value); setIcs(null) }} />
+        {cue && cue !== 'autre' ? 'Heure du rappel' : 'Heure'}
+        <input id="reminder-time" className="input small-input" type="time" value={time} onChange={(e) => changeTime(e.target.value)} />
       </label>
       <div className="row gap wrap">
         {ics ? (
@@ -192,10 +251,10 @@ function ReminderSection({ reminder, update }) {
       </div>
       <p className="muted small">
         {ics
-          ? 'Ouvrez le fichier téléchargé : votre agenda propose d’ajouter un événement quotidien avec alarme.'
+          ? 'Ouvrez le fichier téléchargé : votre agenda propose d’ajouter un événement quotidien avec alarme, intitulé avec votre plan.'
           : 'Le rappel d’agenda fonctionne sur tous les téléphones. Les notifications de l’appli dépendent du navigateur (Chrome/Android, appli installée).'}
       </p>
-      {msg && <p className="small">{msg}</p>}
+      {msg && <p className="small" role="status">{msg}</p>}
     </section>
   )
 }
@@ -244,7 +303,7 @@ function SyncSection({ sync }) {
             <br />
             {sync.status === 'syncing' && 'Synchronisation…'}
             {sync.status === 'ok' && sync.lastSync && `✓ Synchronisé à ${sync.lastSync.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })}`}
-            {sync.status === 'error' && <span className="error">Échec : {sync.error}</span>}
+            {sync.status === 'error' && <span className="error" role="alert">Échec : {sync.error}</span>}
           </p>
           <div className="row gap wrap">
             <button className="btn small" onClick={sync.syncNow} disabled={sync.status === 'syncing'}>Synchroniser maintenant</button>

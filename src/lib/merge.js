@@ -1,12 +1,31 @@
 // Fusion de deux états de progression (appareil local + copie distante).
 // Règles : objectif coché/décoché → le plus récent gagne ; records → le maximum ;
-// jours et historiques → union ; chansons → la plus récemment modifiée (suppressions incluses).
+// jours et historiques → union ; chansons → la plus récemment modifiée (suppressions incluses) ;
+// carnet de séance (journal) → une entrée par jour, la plus récente gagne.
 
-export const EMPTY = { tasks: {}, taskTs: {}, bests: {}, rhythm: {}, days: [], history: [], activity: [], songs: [] }
+export const EMPTY = { tasks: {}, taskTs: {}, bests: {}, rhythm: {}, days: [], history: [], activity: [], songs: [], journal: [] }
+
+export const JOURNAL_LIMIT = 120
 
 export function normalizeState(s) {
-  return { ...EMPTY, ...(s || {}) }
+  const out = { ...EMPTY, ...(s || {}) }
+  if (!Array.isArray(out.journal)) out.journal = []
+  return out
 }
+
+// Carnet de séance : { date, t, goal, goalText, met, snag, feel } — une entrée par date
+export function mergeJournal(a = [], b = []) {
+  const byDate = new Map()
+  for (const e of [...a, ...b]) {
+    if (!e || !e.date) continue
+    const prev = byDate.get(e.date)
+    if (!prev) byDate.set(e.date, e)
+    // Même jour sur deux appareils : on garde la plus récente, en complétant ce qui manque
+    else byDate.set(e.date, (e.t || 0) >= (prev.t || 0) ? { ...prev, ...strip(e) } : { ...e, ...strip(prev) })
+  }
+  return [...byDate.values()].sort((x, y) => x.date.localeCompare(y.date)).slice(-JOURNAL_LIMIT)
+}
+const strip = (e) => Object.fromEntries(Object.entries(e).filter(([, v]) => v !== undefined && v !== null))
 
 const maxMap = (a = {}, b = {}) => {
   const out = { ...a }
@@ -46,6 +65,7 @@ export function mergeStates(localRaw, remoteRaw) {
     history: unionBy(a.history, b.history, (x) => `${x.t || x.date}|${x.pair}|${x.count}`, 300),
     activity: unionBy(a.activity, b.activity, (x) => `${x.t}|${x.type}|${x.key}`, 600),
     songs: [...songs.values()],
+    journal: mergeJournal(a.journal, b.journal),
   }
 }
 

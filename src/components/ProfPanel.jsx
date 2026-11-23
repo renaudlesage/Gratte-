@@ -6,6 +6,8 @@ import { readZipImages, parseName } from '../lib/scans.js'
 import { LESSONS } from '../data/lessons.js'
 import { TABS } from '../data/tabs.js'
 import { SONGS } from '../data/songs.js'
+import ClassProgress from './ClassProgress.jsx'
+import './profProgress.css'
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('fr-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'jamais')
 
@@ -96,6 +98,7 @@ function ClassDetail({ cls, onChange }) {
   const [target, setTarget] = useState(null) // null = toute la classe, sinon id élève
   const [pin, setPin] = useState(cls.exit_pin)
   const [confirmDel, setConfirmDel] = useState(false)
+  const [view, setView] = useState('gerer')
   const { list: scores } = useRemoteScores()
 
   const onFor = useMemo(() => {
@@ -168,6 +171,16 @@ function ClassDetail({ cls, onChange }) {
         </div>
       </div>
 
+      <div className="segmented" role="radiogroup" aria-label="Vue de la classe">
+        {[['gerer', 'Élèves et activations'], ['progres', 'Progrès']].map(([id, name]) => (
+          <button key={id} role="radio" aria-checked={view === id} className={view === id ? 'on' : ''} onClick={() => setView(id)}>{name}</button>
+        ))}
+      </div>
+
+      {view === 'progres' ? (
+        <ClassProgress cls={cls} students={students.rows} unlocks={unlocks.rows} />
+      ) : (
+      <>
       <h3 className="section-title">Élèves ({students.rows?.length ?? '…'})</h3>
       {students.rows && !students.rows.length && <p className="muted small">Aucun élève pour l’instant. Ils rejoignent la classe depuis l’accueil de l’appli avec le code {cls.code}.</p>}
       <ul className="student-list">
@@ -214,6 +227,8 @@ function ClassDetail({ cls, onChange }) {
         <summary>Chansons</summary>
         <div className="unlock-grid">{SONGS.map((s) => <Box key={s.id} item={'chanson:' + s.id} label={s.title} />)}</div>
       </details>
+      </>
+      )}
 
       <div className="danger-zone">
         {confirmDel ? (

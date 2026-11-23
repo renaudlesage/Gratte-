@@ -5,13 +5,18 @@ Application web (React + Vite) pour apprendre la guitare en autonomie, en franç
 ## Fonctionnalités
 
 **Apprendre**
-- **Coach du jour** : une séance d'environ 15 minutes composée à partir de vos records et de votre avancement (paire d'accords la plus faible, rythme 5 BPM plus vite que la dernière fois, oreille, chanson jouable avec vos accords…).
-- **Parcours de 10 leçons**, de l'accordage au barré, avec objectifs à cocher.
+- **Coach du jour** : une séance d'environ 15 minutes composée à partir de vos records et de votre avancement, lancée par « ▶ Commencer ma séance » puis guidée étape par étape par un bandeau. Elle combine la paire d'accords la plus éloignée de son objectif, une révision espacée (paire pas jouée depuis plusieurs jours), un enchaînement de 3 ou 4 accords connus tirés au sort, le rythme (tempo augmenté seulement après une évaluation au micro au-dessus de 85 %), l'oreille un jour sur deux, la leçon suivante, une chanson en rotation transposée dans vos accords et, de temps en temps, une auto-écoute avec l'enregistreur.
+- **Parcours de 11 leçons**, de l'accordage au barré (préparé par Fmaj7, le power chord F5 et un mini-barré). Les objectifs se valident tout seuls quand l'appli en a la preuve (accord reconnu au micro, record du défi minute, rythme réussi à l'évaluation, tablature jouée…) ; les autres se cochent à la main et restent marqués « auto-évalué ».
+- **Séance encadrée** : avant, un « point du jour » en un toucher ; après, un bilan en 2 ou 3 touchers (objectif atteint ?, ce qui a accroché, ressenti) qui oriente la séance du lendemain. Pronostic avant le défi minute (comparé au résultat), preuves « avant / maintenant » dans Mes progrès, et plan « Quand…, je prends ma guitare » pour le rappel quotidien.
+- **Rappel de mémoire** (Pratique › Rappel) : on reconstitue un accord à partir de son nom sur un manche vide, avec un retour corde par corde, puis on voit et on entend le vrai diagramme. Révisions espacées (1, 2, 4, 8, 16 jours) ; chaque leçon commence par retrouver 1 ou 2 accords des leçons précédentes.
+- **Leçons pas à pas, mains libres** : une étape à la fois, en grand, lue à voix haute ; on avance au gros bouton ou à la voix (« suivant », « précédent », « répète »).
+- **« Ça coince ? »** dans les leçons et les exercices : 10 difficultés de débutant (corde qui frise, doigts douloureux, changement trop lent, barré…), diagnostic en un toucher, puis indices dévoilés un à un et l'exercice adapté dans l'appli.
+- **Lexique** (Outils › Lexique) : 54 mots de la guitare expliqués simplement ; dans les leçons, le mot est souligné à sa première apparition et sa définition s'ouvre d'un toucher.
 - **Dictionnaire de 22 accords** et **manche complet** (nom des notes jusqu'à la 12e case, positions d'une note).
 
 **Écoute au micro**
 - **Vérification d'accord** : l'appli reconnaît l'accord joué, signale les cordes qui ne sonnent pas et les notes étrangères.
-- **Défi minute en comptage automatique** : chaque changement propre est compté sans toucher l'écran.
+- **Défi minute en comptage automatique** : chaque changement propre est compté sans toucher l'écran, avec un bilan des changements nets ou approximatifs et de la corde qui ne sonne pas. Sans micro, on peut compter à voix haute et saisir le total à la fin.
 - **Accordeur** (précision < 1 cent).
 
 **Pratiquer**
@@ -34,7 +39,7 @@ Application web (React + Vite) pour apprendre la guitare en autonomie, en franç
 - **Power chords** et **accordages alternatifs** (Drop D, ½ ton plus bas, Open G, Open D, DADGAD) dans l'accordeur, le manche et le dictionnaire.
 
 **Suivi et quotidien**
-- **Mes progrès** : calendrier de pratique, courbes des défis et des évaluations de rythme, 19 badges.
+- **Mes progrès** : calendrier de pratique, courbes des défis et des évaluations de rythme, 21 badges, annoncés au moment où ils sont obtenus.
 - **Enregistreur** : s'enregistrer et se réécouter (stocké sur l'appareil).
 - **Partage d'une grille par lien** (la grille est encodée dans l'adresse, sans serveur).
 - **Rappel quotidien** : événement d'agenda récurrent (.ics, fonctionne partout) et notifications de l'appli installée (Chrome/Android, au mieux).
@@ -64,6 +69,7 @@ L'appli est reliée au projet Supabase « famille-hub » (tables préfixées `gr
 - **Super admin** (adresse enregistrée dans `gratte_admins`) : accès à tout, gestion des profs, **envoi de partitions** (photos ou .zip de pages, tablatures .json) rangées par dossier. Bouton 🎓 en haut à droite.
 - **Prof** (adresse ajoutée par le super admin) : se connecte dans Réglages › Compte (lien ou code reçu par e-mail), crée ses classes et obtient un **code de classe**. Il active pour toute la classe ou pour un élève : leçons, exercices et outils, partitions de l'appli, partitions envoyées, chansons. Il choisit aussi le **code de sortie** du mode élève.
 - **Élève** (sans adresse e-mail) : Réglages › Je suis élève, code de classe + prénom + code secret à 4 chiffres (5 erreurs → 15 minutes de blocage). Il ne voit que ce que le prof a activé ; les nouveautés arrivent au retour sur l'appli et toutes les minutes. Quitter le mode élève demande le code de sortie du prof.
+- **Suivi des progrès** : l'appli de l'élève envoie à son prof un résumé compact (objectifs atteints par leçon, records, jours de pratique) quelques secondes après chaque progrès et à chaque ouverture. Le prof le lit dans Espace prof › classe › **Progrès**, en distinguant ✓ les objectifs validés par l'appli (micro, défi minute, activité) et ☐✓ ceux cochés à la main. Nécessite la migration `supabase/migrations/003_gratte_student_progress.sql` (colonnes `progress`, `progress_at` et fonction `gratte_student_push`) ; tant qu'elle n'est pas appliquée, l'envoi échoue sans bruit.
 
 Sécurité : règles RLS sur toutes les tables ; les élèves passent par des fonctions RPC qui vérifient leur jeton. Le contenu intégré à l'appli (leçons, partitions de l'appli) reste techniquement présent dans le code public : le mode élève guide, il ne protège pas un secret. Les partitions envoyées, elles, ne quittent le serveur que pour les élèves à qui elles ont été activées.
 

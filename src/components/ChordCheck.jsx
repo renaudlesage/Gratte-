@@ -5,6 +5,26 @@ import { STRING_NAMES, OPEN_MIDI } from '../lib/audio.js'
 import { useSettings } from '../lib/settings.jsx'
 import { useProgress } from '../lib/progress.jsx'
 
+const FINGER = ['', 'index', 'majeur', 'annulaire', 'auriculaire']
+
+// Pour une corde muette, quel doigt est en cause et que faire
+export function stringAdvice(chord, s) {
+  const name = `${STRING_NAMES[s]} (${6 - s})`
+  const f = chord.fingers?.[s] || 0
+  if (f) {
+    if (chord.barre && f === 1 && s >= chord.barre.from && s <= chord.barre.to)
+      return `${name} : sous l’index du barré. Roulez l’index sur sa tranche et rapprochez-le de la frette.`
+    return `${name} : c’est votre ${FINGER[f]} (case ${chord.frets[s]}). Appuyez juste derrière la frette, sur le bout du doigt.`
+  }
+  // Corde à vide étouffée : un doigt voisin la touche
+  const near = [s - 1, s + 1].filter((n) => n >= 0 && n < 6 && chord.fingers?.[n])
+  if (near.length) {
+    const n = near[0]
+    return `${name} : corde à vide étouffée, sans doute par votre ${FINGER[chord.fingers[n]]} posé sur ${STRING_NAMES[n]}. Cambrez-le davantage.`
+  }
+  return `${name} : grattez-la bien, elle doit sonner à vide.`
+}
+
 // Panneau « Vérifier mon accord » : écoute, reconnaît et explique ce qui ne sonne pas
 export default function ChordCheck({ chord, compact = false }) {
   const { label, note } = useSettings()
@@ -53,14 +73,14 @@ export default function ChordCheck({ chord, compact = false }) {
       <button className={`btn ${listening ? '' : 'btn-primary'}`} onClick={toggle}>
         {listening ? '■ Arrêter l’écoute' : `🎤 Vérifier mon ${label(chord.id)}`}
       </button>
-      {error && <p className="error small">{error}</p>}
+      {error && <p className="error small" role="alert">{error}</p>}
       {listening && result && (
         <div className={`check-result s-${result.status}`} aria-live="polite">
           {result.status === 'silence' && <strong>Grattez l’accord, je vous écoute…</strong>}
           {result.status === 'ok' && (
             <strong>
               ✓ {label(chord.id)} reconnu
-              {result.silent.length ? ' (presque !)' : ''}
+              {result.silent.length ? ` · ${result.silent.length} corde${result.silent.length > 1 ? 's' : ''} à nettoyer` : ''}
             </strong>
           )}
           {result.status === 'close' && <strong>Presque : il manque de la netteté</strong>}
@@ -69,8 +89,8 @@ export default function ChordCheck({ chord, compact = false }) {
           )}
           {result.status !== 'silence' && result.silent.length > 0 && (
             <span>
-              {result.silent.length === 1 ? 'Cette corde semble ne pas sonner : ' : 'Ces cordes semblent ne pas sonner : '}
-              {result.silent.map((s) => `${STRING_NAMES[s]} (${6 - s})`).join(', ')}. Cambrez le doigt voisin ou appuyez plus près de la frette.
+              {result.silent.length === 1 ? 'Une corde ne sonne pas. ' : 'Des cordes ne sonnent pas. '}
+              {result.silent.map((s) => stringAdvice(chord, s)).join(' ')}
             </span>
           )}
           {result.status !== 'silence' && result.status !== 'ok' && result.foreign.length > 0 && (

@@ -32,9 +32,11 @@ export const SECTIONS = [
   ['pratique.rythmes', 'Rythmes'],
   ['pratique.arpeges', 'Arpèges'],
   ['pratique.oreille', 'Oreille'],
+  ['pratique.rappel', 'Rappel des accords de mémoire'],
   ['outils.accordeur', 'Accordeur'],
   ['outils.metronome', 'Métronome'],
   ['outils.enregistrer', 'Enregistreur'],
+  ['outils.lexique', 'Lexique des mots de la guitare'],
 ]
 
 const AccessContext = createContext(null)

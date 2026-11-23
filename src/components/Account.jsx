@@ -3,10 +3,13 @@ import { useAccess, SECTIONS } from '../lib/access.jsx'
 import { LESSONS } from '../data/lessons.js'
 import { TABS } from '../data/tabs.js'
 import { SONGS } from '../data/songs.js'
+import Coach from './Coach.jsx'
+import { useSettings } from '../lib/settings.jsx'
 
 // Rejoindre une classe (élève) : code de classe + prénom + code secret à 4 chiffres
 export function JoinClass({ compact }) {
   const { join } = useAccess()
+  const { update } = useSettings()
   const [code, setCode] = useState('')
   const [prenom, setPrenom] = useState('')
   const [pin, setPin] = useState('')
@@ -18,6 +21,8 @@ export function JoinClass({ compact }) {
     setMsg('')
     try {
       await join(code, prenom, pin)
+      // En classe, les accords se nomment Do, Ré, Mi… (modifiable dans Réglages)
+      update({ notation: 'fr' })
     } catch (err) {
       setMsg(err.message)
     } finally {
@@ -85,6 +90,7 @@ export function StudentHome({ navigate }) {
         <h1>Bonjour {student.prenom} !</h1>
         <p className="muted">Classe : <strong>{student.classe}</strong></p>
       </section>
+      <Coach navigate={navigate} />
       {error && <p className="error">{error}</p>}
       {empty && <p className="muted">Ton prof n’a encore rien activé. Les leçons et les morceaux apparaîtront ici au fur et à mesure.</p>}
       {lessons.length > 0 && (

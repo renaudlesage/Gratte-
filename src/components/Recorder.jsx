@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Clock } from '../lib/audio.js'
 import { listRecordings, saveRecording, deleteRecording, pickMime } from '../lib/recordings.js'
 import { useProgress } from '../lib/progress.jsx'
+import { micErrorMessage, micUnavailableMessage } from '../lib/micError.js'
 
 const fmtDur = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 
@@ -32,7 +33,11 @@ export default function Recorder() {
 
   const start = async () => {
     setError('')
-    if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError(micUnavailableMessage())
+      return
+    }
+    if (!window.MediaRecorder) {
       setError("L'enregistrement n'est pas disponible dans ce navigateur.")
       return
     }
@@ -66,7 +71,7 @@ export default function Recorder() {
       setState('recording')
       markPracticed()
     } catch (e) {
-      setError(e?.name === 'NotAllowedError' ? 'Le micro est refusé ou indisponible ici. Autorisez-le pour ce site (en HTTPS).' : "Impossible d'ouvrir le micro : " + (e?.message || e))
+      setError(micErrorMessage(e))
     }
   }
 
@@ -106,7 +111,7 @@ export default function Recorder() {
           <button className="btn btn-big" onClick={stop}>■ Arrêter</button>
         </div>
       )}
-      {error && <p className="error small">{error}</p>}
+      {error && <p className="error small" role="alert">{error}</p>}
 
       <h3 className="section-title">Mes enregistrements</h3>
       {recs.length === 0 && <p className="muted small">Aucun enregistrement pour l’instant.</p>}

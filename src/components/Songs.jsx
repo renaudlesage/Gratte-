@@ -14,8 +14,8 @@ export default function Songs({ params = {} }) {
   const [view, setView] = useState({ mode: 'list' }) // list | play | edit
 
   useEffect(() => {
-    if (params.song) setView({ mode: 'play', id: params.song })
-  }, [params.song])
+    if (params.song) setView({ mode: 'play', id: params.song, transpose: params.transpose || 0 })
+  }, [params.song, params.transpose])
   const [incoming, setIncoming] = useState(params.importSong || null)
   useEffect(() => {
     if (params.importSong) setIncoming(params.importSong)
@@ -28,7 +28,7 @@ export default function Songs({ params = {} }) {
   const song = view.id ? all.find((s) => s.id === view.id) : null
 
   if (view.mode === 'edit') return <SongEditor song={song} onDone={(id) => setView(id ? { mode: 'play', id } : { mode: 'list' })} />
-  if (view.mode === 'play' && song) return <SongPlayer song={song} onBack={() => setView({ mode: 'list' })} onEdit={() => setView({ mode: 'edit', id: song.id })} />
+  if (view.mode === 'play' && song) return <SongPlayer key={song.id + ':' + (view.transpose || 0)} song={song} initialTranspose={view.transpose || 0} onBack={() => setView({ mode: 'list' })} onEdit={() => setView({ mode: 'edit', id: song.id })} />
 
   return (
     <div className="songs">
@@ -72,13 +72,14 @@ function SongRow({ song, onOpen }) {
   )
 }
 
-function SongPlayer({ song, onBack, onEdit }) {
+function SongPlayer({ song, initialTranspose = 0, onBack, onEdit }) {
   const { label } = useSettings()
   const { logActivity, markPracticed } = useProgress()
   const parsed = useMemo(() => parseSong(song.text), [song.text])
   const sounding = useMemo(() => [...new Set(parsed.bars)], [parsed])
-  const [transpose, setTranspose] = useState(0)
-  const [capo, setCapo] = useState(() => suggestCapo(sounding, 0))
+  const [transpose, setTranspose] = useState(initialTranspose)
+  const [capo, setCapo] = useState(() => (initialTranspose ? 0 : suggestCapo(sounding, 0)))
+  const maxBar = useRef(-1)
   const [bpm, setBpm] = useState(song.bpm)
   const [accomp, setAccomp] = useState('mesure') // aucun | mesure | temps
   const [band, setBand] = useState(song.band || 'aucun')
@@ -109,6 +110,7 @@ function SongPlayer({ song, onBack, onEdit }) {
       onTick: (e) => {
         const bar = Math.floor(e.beat / clockRef.current.beatsPerBar) - 1
         const n = ref.current.parsed.bars.length
+        if (bar > maxBar.current) maxBar.current = bar
         setPos({ bar: bar < 0 ? -1 : bar % n, beat: e.beatInBar, countIn: bar < 0 })
       },
     })
@@ -130,10 +132,12 @@ function SongPlayer({ song, onBack, onEdit }) {
       clock.stop()
       setRunning(false)
       setPos({ bar: -1, beat: -1 })
-      if (Date.now() - startedAt.current > 30000) logActivity('song', song.id)
+      // Chanson « jouée » seulement après un tour complet de la grille
+      if (parsed.bars.length && maxBar.current >= parsed.bars.length - 1) logActivity('song', song.id)
     } else {
       clock.start()
       startedAt.current = Date.now()
+      maxBar.current = -1
       setRunning(true)
       markPracticed()
     }
