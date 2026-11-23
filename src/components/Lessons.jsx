@@ -5,6 +5,7 @@ import { strum } from '../lib/audio.js'
 import { useProgress } from '../lib/progress.jsx'
 import ChordDiagram from './ChordDiagram.jsx'
 import ChordCheck from './ChordCheck.jsx'
+import LessonStepper from './LessonStepper.jsx'
 import { useAccess } from '../lib/access.jsx'
 import { useSettings } from '../lib/settings.jsx'
 import { taskProof, PROOF_LABEL } from '../lib/evidence.js'
@@ -22,6 +23,7 @@ export default function Lessons({ params = {}, navigate }) {
   const shown = LESSONS.map((l, i) => ({ l, i })).filter(({ l }) => can('lecon:' + l.id))
   const [open, setOpen] = useState(params.id || (nextLesson && can('lecon:' + nextLesson.id) ? nextLesson.id : shown[0]?.l.id))
   const [checkId, setCheckId] = useState(null)
+  const [stepper, setStepper] = useState(null) // id de la leçon en mode pas à pas
 
   useEffect(() => {
     if (params.id) setOpen(params.id)
@@ -67,9 +69,18 @@ export default function Lessons({ params = {}, navigate }) {
                 {l.chords.length > 0 && (
                   <ChordCheck compact chord={getChord(checkId && l.chords.includes(checkId) ? checkId : l.chords[0])} key={l.id + (checkId || '')} />
                 )}
-                <ol className="lesson-steps">
-                  {l.steps.map((s, k) => <li key={k}>{T(s)}</li>)}
-                </ol>
+                {stepper === l.id ? (
+                  <LessonStepper lesson={l} onClose={() => setStepper(null)} />
+                ) : (
+                  <>
+                    <button className="btn stepper-launch" onClick={() => setStepper(l.id)}>
+                      ▶ Pas à pas, mains libres (lu à voix haute)
+                    </button>
+                    <ol className="lesson-steps">
+                      {l.steps.map((s, k) => <li key={k}>{T(s)}</li>)}
+                    </ol>
+                  </>
+                )}
                 <h4>Objectifs</h4>
                 <ul className="tasks">
                   {l.tasks.map((t) => {
